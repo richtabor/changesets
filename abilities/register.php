@@ -170,7 +170,7 @@ function cs_register_abilities() {
 	);
 
 	wp_register_ability(
-		'changesets/stage-page',
+		'changesets/stage',
 		array(
 			'label'               => __( 'Stage page', 'changesets' ),
 			'description'         => __( 'Stage a page or post into a changeset. If source_post_id is provided, clones that published page/post (or updates existing staged draft for that source in this changeset). If no source, creates a new staged page (title required). Optional title, content, excerpt, slug apply in the same call (create or update). Returns staged_id, preview hints, etc.', 'changesets' ),
