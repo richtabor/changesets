@@ -760,7 +760,7 @@ function dcp_ability_create_staged_page( $input ) {
 		'title'        => $staged->post_title,
 		'slug'         => $staged->post_name,
 		'edit_url'     => get_edit_post_link( $staged_id, 'raw' ),
-		'preview_path' => '/' . $staged->post_name . '/?dcp_changeset=' . $uuid,
+		'preview_path' => '/' . $staged->post_name . '/?changeset=' . $uuid,
 	);
 }
 
