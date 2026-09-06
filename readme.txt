@@ -3,7 +3,7 @@ Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,7 +35,37 @@ Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent acce
 3. (Optional) Install MCP Adapter for agent transport.
 4. Use a propose-only Application Password user without `publish_posts` / `edit_published_posts`.
 
+== For agents ==
+
+**Requirements**: This plugin is for a **hosted WordPress site** that you connect via MCP (WordPress MCP Adapter + Application Password). Not WordPress Playground.
+
+**Setup**:
+1. Install and activate **Changesets** and **WordPress MCP Adapter** on the target site.
+2. Connect your MCP client to that site using an Application Password.
+
+**Critical rule**: Never edit live posts, options, or styles directly. Use Changesets abilities only.
+
+**Workflow**:
+1. **Create a changeset**: `changesets/create` → returns `{ preview_url, uuid, changeset_id }`
+2. **Stage work**: `changesets/save` with one of three `type` values:
+   - `content` — page/post/template/template-part/navigation/CPT. Pass `source_id` to stage an existing entity for editing; omit `source_id` to create a new one. Include `title`, `content`, etc.
+   - `styles` — global styles. Pass `variation` (style variation name) and/or `settings`/`styles` (theme.json patches).
+   - `setting` — site option. Pass `key` (e.g. `blogname`, `show_on_front`, `page_on_front`) and `value`.
+3. **Inspect**: `changesets/get` or `changesets/list` to review staged changes.
+4. **Preview**: Give the human the `?changeset=<uuid>` URL (or `preview_url` from create). **Wait for human approval.**
+5. **Publish**: After human approval, call `changesets/approve`, then `changesets/publish` to apply all changes to the live site.
+
+**Preview notes**: The preview query parameter is `changeset` (cookie name is the same). Exit preview via "Exit Changeset" admin bar link or `?exit_changeset=1`.
+
+**UI note**: Changesets uses abilities for approval and publishing — there are no "Approve" or "Publish" buttons in the WordPress admin for agents to click.
+
+**Agent brief** (paste-ready):
+You have access to a WordPress site with Changesets installed. When making site changes: (1) create a changeset, (2) stage all changes using changesets/save (type: content/styles/setting), (3) give the human the preview URL and wait, (4) after approval call changesets/approve then changesets/publish. Never edit live content directly.
+
 == Changelog ==
+
+= 0.4.1 =
+* Fix: Correct CPT and meta key naming for changeset operations.
 
 = 0.4.0 =
 * New: Unified `changesets/save` ability for content, styles, and settings.
