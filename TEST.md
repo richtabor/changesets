@@ -348,6 +348,61 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 3. **Verify**: Status forced back to `draft`
 4. **Verify**: Staged draft never becomes a public URL
 
+## Critical Test Cases (v0.4.2+)
+
+### New page as homepage (publish + setting remap)
+
+**Bug fixed in 0.4.2**: New staged pages (source_id=0) set as homepage via `page_on_front` were left as drafts, causing 404.
+
+**Test**:
+1. Create changeset
+2. Create new page via `changesets/save` type=content (no source_id):
+   ```json
+   {"changeset_id": 123, "type": "content", "post_type": "page", "title": "Welcome", "content": "..."}
+   ```
+   Response: `{"staged_id": 456, ...}`
+3. Stage homepage settings:
+   ```json
+   {"changeset_id": 123, "type": "setting", "key": "show_on_front", "value": "page"}
+   {"changeset_id": 123, "type": "setting", "key": "page_on_front", "value": 456}
+   ```
+4. Approve and publish changeset
+5. **Verify**:
+   - Page 456 has `post_status = 'publish'` (not draft)
+   - Option `page_on_front` equals 456 (staged ID remapped correctly to final live ID)
+   - Homepage loads at `/` without 404
+   - Page no longer has `_changeset_is_staged` meta
+
+**Why this matters**: Settings that reference staged content must be remapped to final IDs after content is published, not applied with staged IDs.
+
+### Discard changeset (new in 0.4.2)
+
+**Test**:
+1. Create changeset
+2. Stage some content
+3. Call `changesets/discard`:
+   ```json
+   {"changeset_id": 123}
+   ```
+4. **Verify**:
+   - Changeset post status is `trash`
+   - Changeset meta `_changeset_status` = `discarded`
+   - All staged drafts are permanently deleted
+   - Preview cookie is cleared
+   - Response includes `deleted_count`
+
+### Status check (new in 0.4.2)
+
+**Test**:
+1. Call `changesets/status` (no parameters)
+2. **Verify** response includes:
+   - `version` (e.g. "0.4.2")
+   - `abilities_registered` (true when Abilities API available)
+   - `user_caps` object with `manage_changesets`, `approve_changesets`, `publish_changesets`
+   - `open_changeset_count`
+
+**Use case**: Agents should call this before `create` to verify setup is complete.
+
 ## Success Checklist
 
 - [ ] Create changeset via ability

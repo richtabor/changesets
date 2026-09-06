@@ -784,6 +784,8 @@ function cs_update_staged_content( $staged_id, $fields ) {
  * @return array|WP_Error { applied_count, source_ids }
  */
 function cs_publish_changeset( $changeset_id ) {
+	global $cs_publishing_changeset;
+
 	$changeset_id = (int) $changeset_id;
 	$changeset    = cs_get_changeset( $changeset_id );
 
@@ -791,10 +793,15 @@ function cs_publish_changeset( $changeset_id ) {
 		return new WP_Error( 'cs_not_changeset', __( 'Not a changeset.', 'changesets' ) );
 	}
 
+	// Set internal flag to bypass staged-publish guard during this operation.
+	$cs_publishing_changeset = true;
+
 	$staged_ids      = cs_get_staged_drafts( $changeset_id );
 	$applied         = 0;
 	$published_new   = 0;
 	$source_ids      = array();
+	$staged_to_live  = array();
+	$failed_items    = array();
 
 	foreach ( $staged_ids as $staged_id ) {
 		$staged    = get_post( $staged_id );
@@ -807,6 +814,10 @@ function cs_publish_changeset( $changeset_id ) {
 		if ( $source_id > 0 ) {
 			$source = get_post( $source_id );
 			if ( ! $source ) {
+				$failed_items[] = array(
+					'staged_id' => $staged_id,
+					'reason'    => 'Source post not found',
+				);
 				continue;
 			}
 
@@ -814,6 +825,11 @@ function cs_publish_changeset( $changeset_id ) {
 			// For pages/posts, require 'publish' status.
 			$requires_publish = in_array( $staged->post_type, array( 'page', 'post' ), true );
 			if ( $requires_publish && 'publish' !== $source->post_status ) {
+				$failed_items[] = array(
+					'staged_id' => $staged_id,
+					'source_id' => $source_id,
+					'reason'    => 'Source is not published',
+				);
 				continue;
 			}
 
@@ -847,30 +863,62 @@ function cs_publish_changeset( $changeset_id ) {
 			}
 
 			wp_delete_post( $staged_id, true );
+			$staged_to_live[ $staged_id ] = $source_id;
 			$source_ids[] = $source_id;
 			$applied++;
 		} else {
-			// Promote brand-new staged page to live publish.
-			wp_update_post(
+			// Promote brand-new staged content to live publish.
+			// Clear staged markers FIRST to prevent guard from blocking.
+			delete_post_meta( $staged_id, '_changeset_is_staged' );
+			delete_post_meta( $staged_id, '_changeset_id' );
+			delete_post_meta( $staged_id, CS_META_SOURCE );
+
+			$result = wp_update_post(
 				array(
 					'ID'          => $staged_id,
 					'post_status' => 'publish',
 				),
 				true
 			);
-			delete_post_meta( $staged_id, '_changeset_is_staged' );
-			delete_post_meta( $staged_id, '_changeset_id' );
-			delete_post_meta( $staged_id, CS_META_SOURCE );
+
+			if ( is_wp_error( $result ) ) {
+				$failed_items[] = array(
+					'staged_id' => $staged_id,
+					'reason'    => $result->get_error_message(),
+				);
+				continue;
+			}
+
+			// Verify final status is publish.
+			$published_post = get_post( $staged_id );
+			if ( ! $published_post || 'publish' !== $published_post->post_status ) {
+				$failed_items[] = array(
+					'staged_id'    => $staged_id,
+					'reason'       => 'Failed to reach publish status',
+					'final_status' => $published_post ? $published_post->post_status : 'unknown',
+				);
+				continue;
+			}
+
+			$staged_to_live[ $staged_id ] = $staged_id;
 			$source_ids[] = $staged_id;
 			$published_new++;
 		}
 	}
 
+	// Clear internal flag.
+	$cs_publishing_changeset = false;
+
+	// Apply settings with ID remapping AFTER content is published.
 	$options = cs_get_staged_options( $changeset_id );
-	foreach ( $options as $key => $value ) {
-		update_option( $key, $value );
-	}
 	if ( $options ) {
+		foreach ( $options as $key => $value ) {
+			// Remap staged IDs to live IDs for settings that reference posts.
+			if ( in_array( $key, array( 'page_on_front', 'page_for_posts' ), true ) && isset( $staged_to_live[ $value ] ) ) {
+				$value = $staged_to_live[ $value ];
+			}
+			update_option( $key, $value );
+		}
 		delete_post_meta( $changeset_id, '_changeset_staged_options' );
 	}
 
@@ -912,12 +960,68 @@ function cs_publish_changeset( $changeset_id ) {
 
 	cs_clear_preview_cookie();
 
-	return array(
+	$result = array(
 		'changeset_id'        => $changeset_id,
 		'applied_count'       => $applied,
 		'published_new_count' => $published_new,
 		'source_ids'          => $source_ids,
 		'status'              => 'published',
+	);
+
+	if ( ! empty( $failed_items ) ) {
+		$result['failed_items'] = $failed_items;
+		$result['partial_success'] = true;
+	}
+
+	return $result;
+}
+
+/**
+ * Discard changeset: trash the changeset and delete all staged drafts.
+ *
+ * @param int $changeset_id Changeset ID.
+ * @return array|WP_Error { changeset_id, status, deleted_count }
+ */
+function cs_discard_changeset( $changeset_id ) {
+	$changeset_id = (int) $changeset_id;
+	$changeset    = cs_get_changeset( $changeset_id );
+
+	if ( ! $changeset ) {
+		return new WP_Error( 'cs_not_changeset', __( 'Not a changeset.', 'changesets' ) );
+	}
+
+	$status = cs_get_changeset_status( $changeset_id );
+	if ( 'published' === $status ) {
+		return new WP_Error( 'cs_already_published', __( 'Cannot discard a published changeset.', 'changesets' ) );
+	}
+
+	// Delete all staged drafts.
+	$staged_ids = cs_get_staged_drafts( $changeset_id );
+	$deleted_count = 0;
+	foreach ( $staged_ids as $staged_id ) {
+		if ( wp_delete_post( $staged_id, true ) ) {
+			$deleted_count++;
+		}
+	}
+
+	// Clear staged options and styles.
+	delete_post_meta( $changeset_id, '_changeset_staged_options' );
+	delete_post_meta( $changeset_id, '_changeset_staged_global_styles' );
+	delete_post_meta( $changeset_id, '_changeset_staged_style_variation' );
+	delete_post_meta( $changeset_id, '_changeset_staged_style_variation_title' );
+
+	// Mark as discarded and trash.
+	update_post_meta( $changeset_id, '_changeset_status', 'discarded' );
+	update_post_meta( $changeset_id, '_changeset_discarded_at', gmdate( 'c' ) );
+	update_post_meta( $changeset_id, '_changeset_discarded_by', get_current_user_id() );
+	wp_trash_post( $changeset_id );
+
+	cs_clear_preview_cookie();
+
+	return array(
+		'changeset_id'  => $changeset_id,
+		'status'        => 'discarded',
+		'deleted_count' => $deleted_count,
 	);
 }
 
@@ -980,10 +1084,17 @@ function cs_list_changesets( $args = array() ) {
  * @param WP_Post $post       Post object.
  */
 function cs_prevent_staged_publish( $new_status, $old_status, $post ) {
+	global $cs_publishing_changeset;
+
 	if ( 'publish' !== $new_status || 'publish' === $old_status ) {
 		return;
 	}
 	if ( ! cs_is_staged( $post->ID ) ) {
+		return;
+	}
+
+	// Allow publish during cs_publish_changeset internal workflow.
+	if ( ! empty( $cs_publishing_changeset ) ) {
 		return;
 	}
 
@@ -1416,6 +1527,43 @@ function cs_hide_staged_from_admin_lists( $query ) {
 	$query->set( 'meta_query', $meta_query );
 }
 add_action( 'pre_get_posts', 'cs_hide_staged_from_admin_lists' );
+
+/**
+ * Get Changesets plugin status and readiness check.
+ *
+ * @return array { version, abilities_registered, user_caps, open_changeset_count }
+ */
+function cs_get_status() {
+	$status = array(
+		'version'              => CS_VERSION,
+		'abilities_registered' => function_exists( 'wp_register_ability' ),
+		'user_caps'            => array(
+			'manage_changesets'  => current_user_can( 'manage_changesets' ),
+			'approve_changesets' => current_user_can( 'approve_changesets' ),
+			'publish_changesets' => current_user_can( 'publish_changesets' ),
+		),
+		'open_changeset_count' => 0,
+	);
+
+	// Count open changesets.
+	$open = get_posts(
+		array(
+			'post_type'      => 'changeset',
+			'post_status'    => 'draft',
+			'posts_per_page' => 1,
+			'meta_query'     => array(
+				array(
+					'key'   => '_changeset_status',
+					'value' => 'open',
+				),
+			),
+			'fields'         => 'ids',
+		)
+	);
+	$status['open_changeset_count'] = count( $open );
+
+	return $status;
+}
 
 /**
  * When a changeset is deleted, hard-delete its staged drafts.

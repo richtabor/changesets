@@ -8,7 +8,7 @@ A changeset is a temporary version of the site. Agents can stage pages/posts/tem
 
 ## Version
 
-**0.4.0** — Full site staging with unified `changesets/save` ability.
+**0.4.2** — Publish fix for new pages + homepage settings; discard + status abilities; enhanced get with styles/options.
 
 ## Naming (locked)
 
@@ -97,12 +97,14 @@ Category: `changesets` (label: "Changesets")
 
 | Ability | Notes |
 |---|---|
+| `changesets/status` | **(0.4.2)** Get plugin version, readiness check, current user caps, open changeset count |
 | `changesets/create` | `{ title? }` → `{ changeset_id, uuid, preview_url, status }` |
-| `changesets/get` | changeset + list of staged entity summaries |
+| `changesets/get` | changeset + list of staged entity summaries + **staged options/styles** (0.4.2) |
 | `changesets/list` | open/approved |
 | **`changesets/save`** | **Unified staging ability (v0.4.0)**<br>`type=content`: stage pages/posts/templates/parts/navigation/CPTs (`post_type`, `source_id?`, `title?`, `content?`, `slug?`, `theme?`)<br>`type=styles`: stage global styles or variation (`variation?`, `styles?`, `settings?`)<br>`type=setting`: stage site option (`key`, `value`) |
 | `changesets/approve` | human approval gate |
-| `changesets/publish` | requires approved (for agents); applies all ops |
+| `changesets/publish` | requires approved (for agents); applies all ops; **returns failed_items** (0.4.2) |
+| `changesets/discard` | **(0.4.2)** trash changeset and delete staged drafts; clears preview |
 
 ### `changesets/save` examples
 
@@ -192,14 +194,16 @@ Category: `changesets` (label: "Changesets")
 
 **Requires hosted WordPress** with Changesets + MCP Adapter + Application Password.
 
-1. `changesets/create` "Home copy"
-2. `changesets/save` type=content, source_id=Home
-3. `changesets/save` type=content (edit title/content)
-4. `changesets/save` type=styles, variation=twilight
-5. `changesets/save` type=setting, key=blogname, value="New Title"
-6. Open `preview_url` — see changes; Exit — see live unchanged
-7. Human: Approve Changeset (ability or UI)
-8. `changesets/publish` — live updates; staged drafts gone
+1. `changesets/status` — verify setup before starting
+2. `changesets/create` "Home copy"
+3. `changesets/save` type=content, source_id=Home
+4. `changesets/save` type=content (edit title/content)
+5. `changesets/save` type=styles, variation=twilight
+6. `changesets/save` type=setting, key=blogname, value="New Title"
+7. Open `preview_url` — see changes; Exit — see live unchanged
+8. Human: Approve Changeset (ability or UI)
+9. `changesets/publish` — live updates; staged drafts gone
+10. (Optional) `changesets/discard` to undo before publish
 
 ## Success criteria
 
