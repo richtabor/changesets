@@ -1,0 +1,30 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "landingPage": "/wp-admin/edit.php",
+  "preferredVersions": {
+    "php": "8.2",
+    "wp": "6.9"
+  },
+  "steps": [
+    {
+      "step": "login",
+      "username": "admin",
+      "password": "password"
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "git:directory",
+        "url": "https://github.com/richtabor/draft-changes",
+        "ref": "main"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; $id = wp_insert_post([ 'post_title' => 'Homepage (live)', 'post_content' => '<!-- wp:paragraph --><p>Old homepage copy. Vague CTA.</p><!-- /wp:paragraph -->', 'post_status' => 'publish', 'post_type' => 'page' ]); update_option( 'show_on_front', 'page' ); update_option( 'page_on_front', $id ); echo 'Seeded page ' . $id;"
+    }
+  ]
+}
