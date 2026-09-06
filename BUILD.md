@@ -79,7 +79,9 @@ Then mark changeset `published` and clear preview cookie.
 
 ## Abilities (`draft-changes/`)
 
-Category: `content-proposals` (rename category label to “Changesets” in UI strings)
+Category: `changesets` (label: "Changesets")
+
+**Important**: The ability category must be registered on the `wp_abilities_api_categories_init` hook (before abilities are registered on `wp_abilities_api_init`). Category registration fails silently when called on the later `wp_abilities_api_init` hook.
 
 | Ability | Notes |
 |---|---|

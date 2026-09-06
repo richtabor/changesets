@@ -18,10 +18,10 @@ function dcp_user_can_manage_changesets() {
 }
 
 /**
- * Register Abilities.
+ * Register ability category.
  */
-function dcp_register_abilities() {
-	if ( ! function_exists( 'wp_register_ability' ) ) {
+function dcp_register_ability_category() {
+	if ( ! function_exists( 'wp_register_ability_category' ) ) {
 		return;
 	}
 
@@ -32,6 +32,16 @@ function dcp_register_abilities() {
 			'description' => __( 'Accumulate site edits in a staging session, preview without touching live, then publish after approval.', 'draft-changes' ),
 		)
 	);
+}
+add_action( 'wp_abilities_api_categories_init', 'dcp_register_ability_category' );
+
+/**
+ * Register Abilities.
+ */
+function dcp_register_abilities() {
+	if ( ! function_exists( 'wp_register_ability' ) ) {
+		return;
+	}
 
 	wp_register_ability(
 	'draft-changes/create-changeset',
