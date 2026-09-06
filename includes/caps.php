@@ -8,10 +8,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Ensure custom caps exist in the role system (registration is via activation + init).
+ * Ensure custom caps exist on Administrator and Editor (safe to call often).
  */
 function dcp_register_caps() {
-	// Caps are assigned on activation; this hook is a stable place for future role helpers.
+	foreach ( array( 'administrator', 'editor' ) as $role_name ) {
+		$role = get_role( $role_name );
+		if ( ! $role ) {
+			continue;
+		}
+		$role->add_cap( 'create_content_proposals' );
+		$role->add_cap( 'edit_content_proposals' );
+		$role->add_cap( 'apply_content_proposals' );
+	}
 }
 
 /**
@@ -50,5 +58,8 @@ function dcp_user_can_apply_proposal( $proposal_id ) {
 	if ( ! $source_id ) {
 		return false;
 	}
-	return current_user_can( 'apply_content_proposals' ) && current_user_can( 'edit_post', $source_id );
+	if ( ! current_user_can( 'edit_post', $source_id ) ) {
+		return false;
+	}
+	return current_user_can( 'apply_content_proposals' ) || current_user_can( 'publish_posts' ) || current_user_can( 'publish_pages' );
 }
