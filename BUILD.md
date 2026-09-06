@@ -88,9 +88,9 @@ Category: `changesets` (label: "Changesets")
 | `changesets/create` | `{ title? }` → `{ changeset_id, uuid, preview_url, status }` |
 | `changesets/get` | changeset + list of staged entity summaries |
 | `changesets/list` | open/approved |
-| `changesets/stage-page` | `{ changeset_id, source_post_id }` — clone page/post into changeset |
+| `changesets/stage` | `{ changeset_id, source_post_id }` — clone page/post into changeset |
 | `create-staged-page` | `{ changeset_id, title, content?, slug? }` — brand new page in changeset |
-| `changesets/stage-page` | `{ staged_id, title?, content?, excerpt? }` |
+| `changesets/stage` | `{ staged_id, title?, content?, excerpt? }` |
 | `stage-setting` | `{ changeset_id, key, value }` — stage options (homepage, site title, etc.) |
 | `stage-global-styles` | `{ changeset_id, settings?, styles? }` — stage theme.json edits |
 | `stage-style-variation` | `{ changeset_id, variation }` — apply theme style variation |
@@ -121,7 +121,7 @@ Category: `changesets` (label: "Changesets")
 **Requires hosted WordPress** with Changesets + MCP Adapter + Application Password.
 
 1. `changesets/create` “Home copy”
-2. `changesets/stage-page` for Home → `changesets/stage-page` (heading change)
+2. `changesets/stage` for Home → `changesets/stage` (heading change)
 3. Open `preview_url` — see change; Exit — see live unchanged
 4. Human: Approve Changeset (ability or UI)
 5. `changesets/publish` — live updates; staged drafts gone

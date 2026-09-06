@@ -74,7 +74,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 # }
 
 # 2. Stage content (clone published post into changeset)
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage-page \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"changeset_id":123,"source_post_id":5}'
@@ -87,7 +87,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 # }
 
 # 3. Update staged content
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage-page \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"staged_id":456,"title":"Updated Heading","content":"<!-- wp:paragraph --><p>New content</p><!-- /wp:paragraph -->"}'
@@ -200,7 +200,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 
 ```bash
 # Try staging same source twice in same changeset
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage-page \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"changeset_id":123,"source_post_id":5}'
