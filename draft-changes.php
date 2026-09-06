@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name:       Draft Changes
- * Description:       Let agents propose edits to published posts and pages without changing the live version. Humans review in the editor and apply.
- * Version:           0.1.6
+ * Description:       Let agents accumulate edits in a Changeset, preview them on the real site, then Publish Changeset after human approval.
+ * Version:           0.2.0
  * Requires at least: 6.9
  * Requires PHP:      7.4
  * Author:            Rich Tabor
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DCP_VERSION', '0.1.6' );
+define( 'DCP_VERSION', '0.2.0' );
 define( 'DCP_FILE', __FILE__ );
 define( 'DCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DCP_URL', plugin_dir_url( __FILE__ ) );
@@ -27,6 +27,7 @@ define( 'DCP_META_APPROVED_BY', '_dcp_approved_by' );
 define( 'DCP_META_APPROVED_AT', '_dcp_approved_at' );
 
 require_once DCP_PATH . 'includes/caps.php';
+require_once DCP_PATH . 'includes/changesets.php';
 require_once DCP_PATH . 'includes/proposals.php';
 require_once DCP_PATH . 'includes/admin.php';
 require_once DCP_PATH . 'abilities/register.php';

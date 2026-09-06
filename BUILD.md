@@ -121,9 +121,9 @@ Keep backward-compatible aliases for a short transition if needed (`create-propo
 
 ## Success criteria
 
-- [ ] CPT + uuid + open changeset works
-- [ ] Stage + update page content without changing live
-- [ ] Preview via URL param + cookie; admin bar; exit restores live view
-- [ ] Approve + Publish Changeset abilities work over MCP Adapter
-- [ ] Live URL only changes after Publish Changeset
-- [ ] BUILD.md matches shipping code
+- [x] CPT + uuid + open changeset works
+- [x] Stage + update page content without changing live
+- [x] Preview via URL param + cookie; admin bar; exit restores live view
+- [x] Approve + Publish Changeset abilities work over MCP Adapter
+- [x] Live URL only changes after Publish Changeset
+- [x] BUILD.md matches shipping code
