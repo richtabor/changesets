@@ -4,11 +4,11 @@ WordPress plugin: agents and humans accumulate site edits in a **Changeset**, pr
 
 ## Product goal
 
-A changeset is a temporary version of the site. Agents can stage pages/posts/templates/template parts/navigation/global styles/site settings — preview via `?changeset=` without touching live — then approve + publish. Like Customizer changesets for block themes.
+A changeset is a temporary version of the site. Agents can stage pages/posts/templates/template parts/navigation/global styles/site settings/logos/featured images — preview via `?changeset=` without touching live — then approve + publish. Like Customizer changesets for block themes.
 
 ## Version
 
-**0.4.0** — Full site staging with unified `changesets/save` ability.
+**0.5.0** — Expanded staging capabilities: featured images, logos (custom_logo theme_mod), site_icon, theme_mod support.
 
 ## Naming (locked)
 
@@ -34,6 +34,17 @@ Humans ask for **site outcomes** ("add Contact to the nav", "warm up the colors"
 - One **open** changeset per site for v1 (session bucket); expand later if needed
 - MCP Adapter installed separately (dogfood transport). Test as an MCP agent would — Abilities only, not SSH.
 - No giant dashboard
+
+### Media policy
+
+**Attachments are never staged** — uploads go directly to the Media Library and persist there even if the changeset is discarded. Changesets stage only **references** to media:
+
+- Content HTML/blocks with attachment IDs (written by editor)
+- Featured images (`featured_media` field on content saves)
+- Site logo (`custom_logo` theme_mod)
+- Site icon (`site_icon` option)
+
+When the changeset is published, the references (IDs) are applied to live content. When discarded, uploaded media remains in the library.
 
 ## Architecture (WordPress-forward)
 
@@ -100,7 +111,7 @@ Category: `changesets` (label: "Changesets")
 | `changesets/create` | `{ title? }` → `{ changeset_id, uuid, preview_url, status }` |
 | `changesets/get` | changeset + list of staged entity summaries |
 | `changesets/list` | open/approved |
-| **`changesets/save`** | **Unified staging ability (v0.4.0)**<br>`type=content`: stage pages/posts/templates/parts/navigation/CPTs (`post_type`, `source_id?`, `title?`, `content?`, `slug?`, `theme?`)<br>`type=styles`: stage global styles or variation (`variation?`, `styles?`, `settings?`)<br>`type=setting`: stage site option (`key`, `value`) |
+| **`changesets/save`** | **Unified staging ability (v0.4.0, expanded v0.5.0)**<br>`type=content`: stage pages/posts/templates/parts/navigation/CPTs (`post_type`, `source_id?`, `title?`, `content?`, `slug?`, `theme?`, `featured_media?`)<br>`type=styles`: stage global styles or variation (`variation?`, `styles?`, `settings?`)<br>`type=setting`: stage site option or theme_mod (`key`, `value`, `store?`) |
 | `changesets/approve` | human approval gate |
 | `changesets/publish` | requires approved (for agents); applies all ops |
 
@@ -115,6 +126,16 @@ Category: `changesets` (label: "Changesets")
 }
 ```
 
+**Stage existing page with featured image:**
+```json
+{
+  "changeset_id": 123,
+  "type": "content",
+  "source_id": 5,
+  "featured_media": 42
+}
+```
+
 **Create new page:**
 ```json
 {
@@ -123,6 +144,18 @@ Category: `changesets` (label: "Changesets")
   "post_type": "page",
   "title": "Contact",
   "content": "<!-- wp:paragraph --><p>Get in touch</p><!-- /wp:paragraph -->"
+}
+```
+
+**Create new page with featured image:**
+```json
+{
+  "changeset_id": 123,
+  "type": "content",
+  "post_type": "page",
+  "title": "Gallery",
+  "content": "<!-- wp:paragraph --><p>Photos</p><!-- /wp:paragraph -->",
+  "featured_media": 100
 }
 ```
 
@@ -158,13 +191,33 @@ Category: `changesets` (label: "Changesets")
 }
 ```
 
-**Stage site setting:**
+**Stage site setting (option):**
 ```json
 {
   "changeset_id": 123,
   "type": "setting",
   "key": "blogname",
   "value": "My New Site Title"
+}
+```
+
+**Stage site logo (theme_mod, auto-detected):**
+```json
+{
+  "changeset_id": 123,
+  "type": "setting",
+  "key": "custom_logo",
+  "value": 42
+}
+```
+
+**Stage site icon (option):**
+```json
+{
+  "changeset_id": 123,
+  "type": "setting",
+  "key": "site_icon",
+  "value": 43
 }
 ```
 
@@ -187,6 +240,10 @@ Category: `changesets` (label: "Changesets")
 - ACF / Yoast meta merge
 - Collaborative RTC
 - Playground support (own-site MCP only)
+- **Theme switching** (0.5.0)
+- **Classic widgets / legacy sidebars** (0.5.0)
+- **Classic (non-block) menu editor objects** — use block `wp_navigation` instead (0.5.0)
+- **Attachment post staging** — uploads persist immediately by design (0.5.0)
 
 ## Demo script (MCP — no SSH)
 
@@ -195,19 +252,25 @@ Category: `changesets` (label: "Changesets")
 1. `changesets/create` "Home copy"
 2. `changesets/save` type=content, source_id=Home
 3. `changesets/save` type=content (edit title/content)
-4. `changesets/save` type=styles, variation=twilight
-5. `changesets/save` type=setting, key=blogname, value="New Title"
-6. Open `preview_url` — see changes; Exit — see live unchanged
-7. Human: Approve Changeset (ability or UI)
-8. `changesets/publish` — live updates; staged drafts gone
+4. `changesets/save` type=content, featured_media=42 (set featured image)
+5. `changesets/save` type=styles, variation=twilight
+6. `changesets/save` type=setting, key=blogname, value="New Title"
+7. `changesets/save` type=setting, key=custom_logo, value=50 (site logo)
+8. Open `preview_url` — see changes; Exit — see live unchanged
+9. Human: Approve Changeset (ability or UI)
+10. `changesets/publish` — live updates; staged drafts gone; media persists
 
 ## Success criteria
 
 - [x] CPT + uuid + open changeset works
 - [x] Stage content (pages/posts/templates/parts/navigation/CPTs) via unified `changesets/save` ability
+- [x] Stage featured images via `featured_media` field (0.5.0)
 - [x] Stage global styles and style variations via `changesets/save` ability
-- [x] Stage site settings via `changesets/save` ability
+- [x] Stage site settings (options) via `changesets/save` ability
+- [x] Stage theme_mods (custom_logo) via `changesets/save` ability (0.5.0)
+- [x] Stage site_icon via `changesets/save` ability (0.5.0)
 - [x] Preview via URL param + cookie; admin bar; exit restores live view
 - [x] Approve + Publish Changeset abilities work over MCP Adapter
 - [x] Live URL only changes after Publish Changeset
+- [x] Media uploads persist immediately; discarding changeset keeps media in library (0.5.0)
 - [x] BUILD.md matches shipping code

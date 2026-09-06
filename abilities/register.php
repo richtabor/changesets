@@ -173,7 +173,7 @@ function cs_register_abilities() {
 		'changesets/save',
 		array(
 			'label'               => __( 'Save to changeset', 'changesets' ),
-			'description'         => __( 'Stage content, styles, or settings into a changeset. Type "content": stage pages/posts/templates/parts/navigation (source_id to clone, or new with title). Type "styles": apply variation name or styles/settings theme.json patch. Type "setting": stage site option (key+value). Returns staged entity details or confirmation.', 'changesets' ),
+			'description'         => __( 'Stage content, styles, or settings into a changeset. Type "content": stage pages/posts/templates/parts/navigation (source_id to clone, or new with title; featured_media optional). Type "styles": apply variation name or styles/settings theme.json patch. Type "setting": stage site option or theme_mod (key+value; store: option|theme_mod). Returns staged entity details or confirmation.', 'changesets' ),
 			'category'            => 'changesets',
 			'input_schema'        => array(
 				'type'                 => 'object',
@@ -186,7 +186,7 @@ function cs_register_abilities() {
 					'type'         => array(
 						'type'        => 'string',
 						'enum'        => array( 'content', 'styles', 'setting' ),
-						'description' => 'Type of entity to stage: content (pages/posts/templates/etc), styles (global styles/variations), or setting (site options).',
+						'description' => 'Type of entity to stage: content (pages/posts/templates/etc), styles (global styles/variations), or setting (site options/theme_mods).',
 					),
 					'post_type'    => array(
 						'type'        => 'string',
@@ -213,6 +213,11 @@ function cs_register_abilities() {
 						'type'        => 'string',
 						'description' => '[content] Slug.',
 					),
+					'featured_media' => array(
+						'type'        => 'integer',
+						'description' => '[content] Featured image attachment ID. Set to 0 to remove featured image.',
+						'minimum'     => 0,
+					),
 					'theme'        => array(
 						'type'        => 'string',
 						'description' => '[content, wp_template only] Theme slug (defaults to active).',
@@ -231,10 +236,15 @@ function cs_register_abilities() {
 					),
 					'key'          => array(
 						'type'        => 'string',
-						'description' => '[setting] Option name to stage (show_on_front, page_on_front, page_for_posts, blogname, blogdescription).',
+						'description' => '[setting] Setting name. Options: show_on_front, page_on_front, page_for_posts, blogname, blogdescription, site_icon. Theme mods: custom_logo.',
 					),
 					'value'        => array(
-						'description' => '[setting] Option value.',
+						'description' => '[setting] Setting value.',
+					),
+					'store'        => array(
+						'type'        => 'string',
+						'enum'        => array( 'option', 'theme_mod' ),
+						'description' => '[setting] Storage type: "option" (default) or "theme_mod". Auto-detected for known keys (custom_logo → theme_mod).',
 					),
 				),
 				'required'             => array( 'changeset_id', 'type' ),
@@ -468,8 +478,9 @@ function cs_ability_save( $input ) {
  * @return array|WP_Error
  */
 function cs_ability_save_content( $changeset_id, $input ) {
-	$post_type = isset( $input['post_type'] ) ? $input['post_type'] : 'page';
-	$source_id = isset( $input['source_id'] ) ? (int) $input['source_id'] : 0;
+	$post_type      = isset( $input['post_type'] ) ? $input['post_type'] : 'page';
+	$source_id      = isset( $input['source_id'] ) ? (int) $input['source_id'] : 0;
+	$featured_media = array_key_exists( 'featured_media', $input ) ? (int) $input['featured_media'] : null;
 
 	// Validate post type.
 	if ( ! cs_is_stageable_post_type( $post_type ) ) {
@@ -481,8 +492,16 @@ function cs_ability_save_content( $changeset_id, $input ) {
 		$existing_staged = cs_get_staged_draft_for_source( $changeset_id, $source_id );
 		if ( $existing_staged ) {
 			$staged_id = $existing_staged;
+			// Update featured image if specified.
+			if ( null !== $featured_media ) {
+				if ( $featured_media > 0 ) {
+					set_post_thumbnail( $staged_id, $featured_media );
+				} else {
+					delete_post_thumbnail( $staged_id );
+				}
+			}
 		} else {
-			$staged_id = cs_stage_content( $changeset_id, $source_id, $post_type );
+			$staged_id = cs_stage_content( $changeset_id, $source_id, $post_type, $featured_media );
 			if ( is_wp_error( $staged_id ) ) {
 				return $staged_id;
 			}
@@ -503,6 +522,11 @@ function cs_ability_save_content( $changeset_id, $input ) {
 		$staged_id = cs_create_staged_content( $changeset_id, $post_type, $title, $content, $slug, $theme );
 		if ( is_wp_error( $staged_id ) ) {
 			return $staged_id;
+		}
+
+		// Set featured image on new content.
+		if ( null !== $featured_media && $featured_media > 0 ) {
+			set_post_thumbnail( $staged_id, $featured_media );
 		}
 	}
 
@@ -619,6 +643,7 @@ function cs_ability_save_styles( $changeset_id, $input ) {
 function cs_ability_save_setting( $changeset_id, $input ) {
 	$key   = isset( $input['key'] ) ? $input['key'] : '';
 	$value = isset( $input['value'] ) ? $input['value'] : null;
+	$store = isset( $input['store'] ) ? $input['store'] : 'option';
 
 	if ( '' === $key ) {
 		return new WP_Error( 'cs_missing_key', __( 'Setting key is required.', 'changesets' ) );
@@ -628,7 +653,7 @@ function cs_ability_save_setting( $changeset_id, $input ) {
 		return new WP_Error( 'cs_missing_value', __( 'Setting value is required.', 'changesets' ) );
 	}
 
-	$result = cs_stage_option( $changeset_id, $key, $value );
+	$result = cs_stage_option( $changeset_id, $key, $value, $store );
 	if ( is_wp_error( $result ) ) {
 		return $result;
 	}
@@ -638,6 +663,7 @@ function cs_ability_save_setting( $changeset_id, $input ) {
 		'type'         => 'setting',
 		'key'          => $key,
 		'value'        => $value,
+		'store'        => 'custom_logo' === $key ? 'theme_mod' : $store,
 		'staged'       => true,
 	);
 }

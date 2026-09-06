@@ -156,6 +156,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 #   "type": "setting",
 #   "key": "blogname",
 #   "value": "New Site Title",
+#   "store": "option",
 #   "staged": true
 # }
 
@@ -170,6 +171,50 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"changeset_id":123,"type":"setting","key":"page_on_front","value":5}'
+
+# 4. Stage site logo (custom_logo theme_mod, auto-detected)
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"setting","key":"custom_logo","value":42}'
+
+# Response:
+# {
+#   "changeset_id": 123,
+#   "type": "setting",
+#   "key": "custom_logo",
+#   "value": 42,
+#   "store": "theme_mod",
+#   "staged": true
+# }
+
+# 5. Stage site icon (option)
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"setting","key":"site_icon","value":43}'
+```
+
+### Test Flow: Featured Images
+
+```bash
+# 1. Stage page with featured image
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"content","source_id":5,"featured_media":100}'
+
+# 2. Create new page with featured image
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"content","post_type":"page","title":"Gallery","content":"<!-- wp:paragraph --><p>Photos</p><!-- /wp:paragraph -->","featured_media":101}'
+
+# 3. Remove featured image (set to 0)
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"content","source_id":5,"featured_media":0}'
 ```
 
 ### Preview Testing
@@ -352,9 +397,12 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 
 - [ ] Create changeset via ability
 - [ ] Stage content (pages, posts, templates, etc) via `changesets/save` type=content
+- [ ] Stage featured images via `changesets/save` type=content with `featured_media`
 - [ ] Stage global styles via `changesets/save` type=styles
 - [ ] Stage style variation via `changesets/save` type=styles
 - [ ] Stage settings via `changesets/save` type=setting
+- [ ] Stage site logo via `changesets/save` type=setting key=custom_logo
+- [ ] Stage site icon via `changesets/save` type=setting key=site_icon
 - [ ] Preview URL shows all staged changes
 - [ ] Admin bar appears in preview mode
 - [ ] Exit preview restores live view
@@ -362,8 +410,76 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 - [ ] Publish changeset via ability
 - [ ] Live content updated after publish
 - [ ] Live settings updated after publish
+- [ ] Live theme_mods updated after publish
 - [ ] Live styles updated after publish
+- [ ] Featured images applied after publish
 - [ ] Staged drafts deleted after publish
 - [ ] Native revision saved
 - [ ] Cannot publish un-approved changeset
 - [ ] Staged drafts blocked from public publish
+- [ ] Media uploads persist even when changeset discarded
+
+## Regression & Feature Scenarios (0.5.0)
+
+### Scenario 1: Site title
+```bash
+# Stage site title
+{"changeset_id":123,"type":"setting","key":"blogname","value":"My New Site"}
+# Verify preview shows new title
+# Publish
+# Verify live site shows new title
+```
+
+### Scenario 2: Logo (upload then setting)
+```bash
+# 1. Upload logo via Media Library (persist immediately, returns attachment ID 42)
+# 2. Stage logo
+{"changeset_id":123,"type":"setting","key":"custom_logo","value":42}
+# Verify preview shows new logo
+# Publish
+# Verify live site shows new logo
+# Verify get_theme_mod('custom_logo') returns 42
+```
+
+### Scenario 3: Featured image on page
+```bash
+# 1. Upload image via Media Library (returns attachment ID 100)
+# 2. Stage page with featured image
+{"changeset_id":123,"type":"content","source_id":5,"featured_media":100}
+# Verify preview shows featured image
+# Publish
+# Verify live page shows featured image
+```
+
+### Scenario 4: New page as home (regression)
+```bash
+# 1. Create new page in changeset
+{"changeset_id":123,"type":"content","post_type":"page","title":"Welcome","content":"<!-- wp:paragraph --><p>Home</p><!-- /wp:paragraph -->"}
+# Returns staged_id (e.g., 456)
+# 2. Set as front page
+{"changeset_id":123,"type":"setting","key":"show_on_front","value":"page"}
+{"changeset_id":123,"type":"setting","key":"page_on_front","value":456}
+# Verify preview shows new home page
+# Publish
+# Verify live site shows new home page
+```
+
+### Scenario 5: Discard keeps media
+```bash
+# 1. Upload image via Media Library (returns attachment ID 200)
+# 2. Stage page with featured image
+{"changeset_id":123,"type":"content","post_type":"page","title":"Test","featured_media":200}
+# 3. Discard changeset (trash it or just leave it)
+# Verify attachment ID 200 still exists in Media Library
+# Verify page was not published
+```
+
+### Scenario 6: Site icon
+```bash
+# 1. Upload icon via Media Library (returns attachment ID 50)
+# 2. Stage site icon
+{"changeset_id":123,"type":"setting","key":"site_icon","value":50}
+# Verify preview shows new icon in browser tab
+# Publish
+# Verify live site shows new icon
+```

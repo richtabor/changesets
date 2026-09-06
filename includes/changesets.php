@@ -284,12 +284,13 @@ function cs_get_staged_changeset_id( $staged_id ) {
 /**
  * Stage content: clone a published post/page/template/etc into changeset.
  *
- * @param int    $changeset_id Changeset ID.
- * @param int    $source_id    Source post ID.
- * @param string $post_type    Optional post type (defaults to source's type).
+ * @param int    $changeset_id   Changeset ID.
+ * @param int    $source_id      Source post ID.
+ * @param string $post_type      Optional post type (defaults to source's type).
+ * @param int    $featured_media Optional featured image attachment ID.
  * @return int|WP_Error Staged draft ID.
  */
-function cs_stage_content( $changeset_id, $source_id, $post_type = '' ) {
+function cs_stage_content( $changeset_id, $source_id, $post_type = '', $featured_media = null ) {
 	$changeset_id = (int) $changeset_id;
 	$source_id    = (int) $source_id;
 
@@ -348,9 +349,19 @@ function cs_stage_content( $changeset_id, $source_id, $post_type = '' ) {
 	update_post_meta( $staged_id, CS_META_SOURCE, $source_id );
 	update_post_meta( $staged_id, '_changeset_id', $changeset_id );
 
-	$thumb = get_post_thumbnail_id( $source_id );
-	if ( $thumb ) {
-		set_post_thumbnail( $staged_id, $thumb );
+	// Handle featured image.
+	if ( null !== $featured_media ) {
+		$featured_media = (int) $featured_media;
+		if ( $featured_media > 0 ) {
+			set_post_thumbnail( $staged_id, $featured_media );
+		} else {
+			delete_post_thumbnail( $staged_id );
+		}
+	} else {
+		$thumb = get_post_thumbnail_id( $source_id );
+		if ( $thumb ) {
+			set_post_thumbnail( $staged_id, $thumb );
+		}
 	}
 
 	// Copy taxonomy terms for pages/posts.
@@ -383,35 +394,72 @@ function cs_get_staged_options( $changeset_id ) {
 }
 
 /**
- * Stage a site option into a changeset (not applied live until Publish).
+ * Get staged theme_mods bag for a changeset.
  *
- * Supported keys initially: show_on_front, page_on_front, page_for_posts, blogname, blogdescription.
+ * @param int $changeset_id Changeset ID.
+ * @return array
+ */
+function cs_get_staged_theme_mods( $changeset_id ) {
+	$raw = get_post_meta( (int) $changeset_id, '_changeset_staged_theme_mods', true );
+	return is_array( $raw ) ? $raw : array();
+}
+
+/**
+ * Stage a site option or theme_mod into a changeset (not applied live until Publish).
+ *
+ * Supported options: show_on_front, page_on_front, page_for_posts, blogname, blogdescription, site_icon.
+ * Supported theme_mods: custom_logo.
  *
  * @param int    $changeset_id Changeset ID.
- * @param string $key          Option name.
- * @param mixed  $value        Option value.
+ * @param string $key          Setting name.
+ * @param mixed  $value        Setting value.
+ * @param string $store        Storage type: 'option' (default) or 'theme_mod'.
  * @return true|WP_Error
  */
-function cs_stage_option( $changeset_id, $key, $value ) {
+function cs_stage_option( $changeset_id, $key, $value, $store = 'option' ) {
 	$changeset = cs_get_changeset( $changeset_id );
 	if ( ! $changeset ) {
 		return new WP_Error( 'cs_invalid_changeset', __( 'Invalid changeset.', 'changesets' ) );
 	}
 
-	$allowed = array( 'show_on_front', 'page_on_front', 'page_for_posts', 'blogname', 'blogdescription' );
-	if ( ! in_array( $key, $allowed, true ) ) {
-		return new WP_Error( 'cs_unsupported_option', __( 'That setting is not stageable yet.', 'changesets' ) );
+	$store = in_array( $store, array( 'option', 'theme_mod' ), true ) ? $store : 'option';
+
+	// Auto-detect known logo/icon keys.
+	if ( 'custom_logo' === $key ) {
+		$store = 'theme_mod';
 	}
 
-	if ( in_array( $key, array( 'page_on_front', 'page_for_posts' ), true ) ) {
-		$value = (int) $value;
+	$allowed_options = array( 'show_on_front', 'page_on_front', 'page_for_posts', 'blogname', 'blogdescription', 'site_icon' );
+	$allowed_mods    = array( 'custom_logo' );
+
+	if ( 'option' === $store ) {
+		if ( ! in_array( $key, $allowed_options, true ) ) {
+			return new WP_Error( 'cs_unsupported_option', __( 'That setting is not stageable yet.', 'changesets' ) );
+		}
+
+		if ( in_array( $key, array( 'page_on_front', 'page_for_posts', 'site_icon' ), true ) ) {
+			$value = (int) $value;
+		} else {
+			$value = is_string( $value ) ? $value : (string) $value;
+		}
+
+		$bag         = cs_get_staged_options( $changeset_id );
+		$bag[ $key ] = $value;
+		update_post_meta( (int) $changeset_id, '_changeset_staged_options', $bag );
 	} else {
-		$value = is_string( $value ) ? $value : (string) $value;
+		if ( ! in_array( $key, $allowed_mods, true ) ) {
+			return new WP_Error( 'cs_unsupported_theme_mod', __( 'That theme mod is not stageable yet.', 'changesets' ) );
+		}
+
+		if ( 'custom_logo' === $key ) {
+			$value = (int) $value;
+		}
+
+		$bag         = cs_get_staged_theme_mods( $changeset_id );
+		$bag[ $key ] = $value;
+		update_post_meta( (int) $changeset_id, '_changeset_staged_theme_mods', $bag );
 	}
 
-	$bag         = cs_get_staged_options( $changeset_id );
-	$bag[ $key ] = $value;
-	update_post_meta( (int) $changeset_id, '_changeset_staged_options', $bag );
 	return true;
 }
 
@@ -874,6 +922,14 @@ function cs_publish_changeset( $changeset_id ) {
 		delete_post_meta( $changeset_id, '_changeset_staged_options' );
 	}
 
+	$theme_mods = cs_get_staged_theme_mods( $changeset_id );
+	foreach ( $theme_mods as $key => $value ) {
+		set_theme_mod( $key, $value );
+	}
+	if ( $theme_mods ) {
+		delete_post_meta( $changeset_id, '_changeset_staged_theme_mods' );
+	}
+
 	$staged_styles = cs_get_staged_global_styles( $changeset_id );
 	if ( ! $staged_styles ) {
 		$variation_stem = cs_get_staged_style_variation( $changeset_id );
@@ -1260,6 +1316,27 @@ add_filter( 'pre_option_page_on_front', 'cs_preview_filter_option', 10, 2 );
 add_filter( 'pre_option_page_for_posts', 'cs_preview_filter_option', 10, 2 );
 add_filter( 'pre_option_blogname', 'cs_preview_filter_option', 10, 2 );
 add_filter( 'pre_option_blogdescription', 'cs_preview_filter_option', 10, 2 );
+add_filter( 'pre_option_site_icon', 'cs_preview_filter_option', 10, 2 );
+
+/**
+ * Overlay staged theme_mods during preview.
+ *
+ * @param mixed  $pre  Short-circuit value.
+ * @param string $name Theme mod name.
+ * @return mixed
+ */
+function cs_preview_filter_theme_mod( $pre, $name ) {
+	$index = cs_preview_staged_index();
+	if ( ! $index ) {
+		return $pre;
+	}
+	$bag = cs_get_staged_theme_mods( $index['changeset_id'] );
+	if ( array_key_exists( $name, $bag ) ) {
+		return $bag[ $name ];
+	}
+	return $pre;
+}
+add_filter( 'pre_get_theme_mod_custom_logo', 'cs_preview_filter_theme_mod', 10, 2 );
 
 /**
  * Overlay staged style variation onto user theme.json during preview.
