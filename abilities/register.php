@@ -348,6 +348,78 @@ function cs_register_abilities() {
 			),
 		)
 	);
+
+	wp_register_ability(
+		'changesets/discard',
+		array(
+			'label'               => __( 'Discard changeset', 'changesets' ),
+			'description'         => __( 'Trash an open changeset and delete all its staged drafts. Clears preview cookie. Cannot discard published changesets.', 'changesets' ),
+			'category'            => 'changesets',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'changeset_id' => array(
+						'type'        => 'integer',
+						'description' => 'ID of the changeset to discard.',
+						'minimum'     => 1,
+					),
+				),
+				'required'             => array( 'changeset_id' ),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'changeset_id'  => array( 'type' => 'integer' ),
+					'status'        => array( 'type' => 'string' ),
+					'deleted_count' => array( 'type' => 'integer' ),
+				),
+			),
+			'execute_callback'    => 'cs_ability_discard_changeset',
+			'permission_callback' => 'cs_ability_can_discard_changeset',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'public'       => true,
+				'annotations'  => array(
+					'readonly'    => false,
+					'destructive' => true,
+					'idempotent'  => true,
+				),
+			),
+		)
+	);
+
+	wp_register_ability(
+		'changesets/status',
+		array(
+			'label'               => __( 'Get Changesets status', 'changesets' ),
+			'description'         => __( 'Get plugin version, readiness check, current user capabilities, and open changeset count. Use this to verify setup before creating changesets.', 'changesets' ),
+			'category'            => 'changesets',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'version'              => array( 'type' => 'string' ),
+					'abilities_registered' => array( 'type' => 'boolean' ),
+					'user_caps'            => array( 'type' => 'object' ),
+					'open_changeset_count' => array( 'type' => 'integer' ),
+				),
+			),
+			'execute_callback'    => 'cs_ability_get_status',
+			'permission_callback' => '__return_true',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'public'       => true,
+				'annotations'  => array(
+					'readonly'    => true,
+					'destructive' => false,
+				),
+			),
+		)
+	);
 }
 add_action( 'wp_abilities_api_init', 'cs_register_abilities' );
 
@@ -403,13 +475,20 @@ function cs_ability_get_changeset( $input ) {
 		);
 	}
 
+	$staged_options = cs_get_staged_options( $changeset_id );
+	$staged_styles = cs_get_staged_global_styles( $changeset_id );
+	$style_variation = cs_get_staged_style_variation( $changeset_id );
+
 	return array(
-		'changeset_id' => $changeset_id,
-		'uuid'         => cs_get_changeset_uuid( $changeset_id ),
-		'title'        => $changeset->post_title,
-		'status'       => cs_get_changeset_status( $changeset_id ),
-		'preview_url'  => cs_get_preview_url( $changeset_id ),
-		'staged_items' => $staged_items,
+		'changeset_id'    => $changeset_id,
+		'uuid'            => cs_get_changeset_uuid( $changeset_id ),
+		'title'           => $changeset->post_title,
+		'status'          => cs_get_changeset_status( $changeset_id ),
+		'preview_url'     => cs_get_preview_url( $changeset_id ),
+		'staged_items'    => $staged_items,
+		'staged_options'  => $staged_options ? $staged_options : array(),
+		'staged_styles'   => $staged_styles ? $staged_styles : null,
+		'style_variation' => $style_variation ? $style_variation : null,
 	);
 }
 
@@ -682,4 +761,22 @@ function cs_ability_publish_changeset( $input ) {
 	}
 
 	return $result;
+}
+
+function cs_ability_can_discard_changeset( $input ) {
+	return cs_user_can_manage_changesets();
+}
+
+function cs_ability_discard_changeset( $input ) {
+	$changeset_id = (int) $input['changeset_id'];
+	$result       = cs_discard_changeset( $changeset_id );
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
+
+	return $result;
+}
+
+function cs_ability_get_status( $input ) {
+	return cs_get_status();
 }

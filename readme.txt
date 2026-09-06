@@ -3,7 +3,7 @@ Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.4.1
+Stable tag: 0.4.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -37,13 +37,14 @@ Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent acce
 
 == For agents ==
 
-**Requirements**: This plugin is for a **hosted WordPress site** that you connect via MCP (WordPress MCP Adapter + Application Password). Not WordPress Playground.
+**Setup requirements** (check FIRST, before credentials):
 
-**Setup**:
-1. Install and activate **Changesets** and **WordPress MCP Adapter** on the target site.
-2. Connect your MCP client to that site using an Application Password.
+1. **Required plugins**: Changesets + WordPress MCP Adapter must be installed and active
+2. **How to verify**: Try calling `changesets/*` abilities via MCP. If not available, the plugins are missing.
+3. **If missing**: Explain both plugins are required for staging workflow. Ask permission to install them (or guide human to install). Then install if allowed.
+4. **Only after plugins are active**: Request Application Password / MCP connection if not already connected.
 
-**Critical rule**: Never edit live posts, options, or styles directly. Use Changesets abilities only.
+**Critical**: Site URL alone does not give you MCP access. You need the MCP Adapter plugin installed and an authenticated connection to call `changesets/*` abilities.
 
 **Workflow**:
 1. **Create a changeset**: `changesets/create` → returns `{ preview_url, uuid, changeset_id }`
@@ -55,14 +56,25 @@ Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent acce
 4. **Preview**: Give the human the `?changeset=<uuid>` URL (or `preview_url` from create). **Wait for human approval.**
 5. **Publish**: After human approval, call `changesets/approve`, then `changesets/publish` to apply all changes to the live site.
 
+**Never edit live content directly**. Always use the Changesets workflow. If the human explicitly asks you to repair something live outside of Changesets, only do so after confirming that's what they want.
+
 **Preview notes**: The preview query parameter is `changeset` (cookie name is the same). Exit preview via "Exit Changeset" admin bar link or `?exit_changeset=1`.
 
 **UI note**: Changesets uses abilities for approval and publishing — there are no "Approve" or "Publish" buttons in the WordPress admin for agents to click.
 
 **Agent brief** (paste-ready):
-You have access to a WordPress site with Changesets installed. When making site changes: (1) create a changeset, (2) stage all changes using changesets/save (type: content/styles/setting), (3) give the human the preview URL and wait, (4) after approval call changesets/approve then changesets/publish. Never edit live content directly.
+You have access to a WordPress site. Before staging changes, verify Changesets and WordPress MCP Adapter are installed and active. If missing, ask permission to install them. Once active and connected: (1) create a changeset, (2) stage all changes using changesets/save (type: content/styles/setting), (3) give the human the preview URL and wait for approval, (4) after approval call changesets/approve then changesets/publish. Never edit live content directly.
 
 == Changelog ==
+
+= 0.4.2 =
+* Fix: Publish Changeset now correctly publishes new pages (source_id=0) by clearing staged markers before status change, preventing the staged-publish guard from blocking.
+* Fix: Settings that reference staged content (e.g. page_on_front) are remapped to final live post IDs after content is published (order matters: content first, then settings).
+* Fix: Publish returns accurate results with failed_items array when any item fails to reach publish status (no false success claims).
+* New: `changesets/discard` ability — trash/discard an open changeset and delete all staged drafts; clears preview.
+* New: `changesets/status` ability — readiness check returning plugin version, abilities registration status, current user capabilities, and open changeset count.
+* Change: `changesets/get` now includes staged_options, staged_styles, and style_variation (full changeset review).
+* Change: Improved agent setup guidance — agents must verify Changesets + MCP Adapter are installed before requesting credentials.
 
 = 0.4.1 =
 * Fix: Correct CPT and meta key naming for changeset operations.
