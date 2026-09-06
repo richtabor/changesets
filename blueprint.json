@@ -24,8 +24,20 @@
       }
     },
     {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "git:directory",
+        "url": "https://github.com/WordPress/mcp-adapter",
+        "ref": "trunk",
+        "refType": "branch"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
       "step": "runPHP",
-      "code": "<?php\nrequire '/wordpress/wp-load.php';\n\n// Create and publish homepage\n$home_id = wp_insert_post([\n  'post_title' => 'Welcome to Our Store',\n  'post_content' => '<!-- wp:heading --><h2>Discover Amazing Products</h2><!-- /wp:heading --><!-- wp:paragraph --><p>Browse our collection of carefully curated items. Shop now and enjoy free shipping on orders over $50.</p><!-- /wp:paragraph -->',\n  'post_status' => 'publish',\n  'post_type' => 'page'\n]);\n\nif (!is_wp_error($home_id)) {\n  update_option('show_on_front', 'page');\n  update_option('page_on_front', $home_id);\n}\n\n// Create changeset\n$changeset_id = dcp_create_changeset('Try Draft Changes');\n\nif (!is_wp_error($changeset_id)) {\n  // Stage homepage and update with improved content\n  $staged_home_id = dcp_stage_content($changeset_id, $home_id);\n  \n  if (!is_wp_error($staged_home_id)) {\n    dcp_update_staged_content($staged_home_id, [\n      'title' => 'Welcome to Our Premium Store',\n      'content' => '<!-- wp:heading --><h2>Shop Premium Products with Confidence</h2><!-- /wp:heading --><!-- wp:paragraph --><p>Explore our exclusive collection of handpicked premium items. <strong>Limited time offer:</strong> Free shipping on all orders, plus 20% off your first purchase!</p><!-- /wp:paragraph --><!-- wp:buttons --><div class=\"wp-block-buttons\"><!-- wp:button --><div class=\"wp-block-button\"><a class=\"wp-block-button__link wp-element-button\" href=\"#\">Shop Now</a></div><!-- /wp:button --></div><!-- /wp:buttons -->'\n    ]);\n  }\n  \n  // Create staged Contact page using helper\n  $contact_content = '<!-- wp:heading --><h2>Get in Touch</h2><!-- /wp:heading --><!-- wp:paragraph --><p>Have questions? We are here to help! Reach out to our support team:</p><!-- /wp:paragraph --><!-- wp:paragraph --><p><strong>Email:</strong> hello@example.com<br><strong>Phone:</strong> (555) 123-4567<br><strong>Hours:</strong> Mon-Fri, 9am-5pm EST</p><!-- /wp:paragraph -->';\n  $staged_contact_id = dcp_create_staged_page($changeset_id, 'Contact Us', $contact_content);\n  \n  // Store preview URL for reference\n  $uuid = dcp_get_changeset_uuid($changeset_id);\n  $preview_url = dcp_get_preview_url($changeset_id);\n  update_option('dcp_demo_preview_url', $preview_url);\n  update_option('dcp_demo_uuid', $uuid);\n  \n  echo \"Demo ready! Changeset created with ID: {$changeset_id}\\n\";\n  echo \"Preview URL: {$preview_url}\\n\";\n  echo \"UUID: {$uuid}\\n\";\n}"
+      "code": "<?php\nrequire '/wordpress/wp-load.php';\n\n// Create and publish homepage\n$home_id = wp_insert_post([\n  'post_title' => 'Homepage (live)',\n  'post_content' => '<!-- wp:paragraph --><p>Old homepage copy. Vague CTA.</p><!-- /wp:paragraph -->',\n  'post_status' => 'publish',\n  'post_type' => 'page'\n]);\n\nif (!is_wp_error($home_id)) {\n  update_option('show_on_front', 'page');\n  update_option('page_on_front', $home_id);\n}\n\n// Create changeset using plugin helper\n$changeset_id = dcp_create_changeset('Home Copy Update');\n\nif (!is_wp_error($changeset_id)) {\n  // Stage homepage and update with improved content\n  $staged_home_id = dcp_stage_content($changeset_id, $home_id);\n  \n  if (!is_wp_error($staged_home_id)) {\n    dcp_update_staged_content($staged_home_id, [\n      'title' => 'Homepage (staged)',\n      'content' => '<!-- wp:paragraph --><p>New homepage copy. Clear CTA and value prop.</p><!-- /wp:paragraph -->'\n    ]);\n  }\n  \n  // Create staged Contact page using helper\n  $contact_content = '<!-- wp:paragraph --><p>Get in touch with us.</p><!-- /wp:paragraph -->';\n  $staged_contact_id = dcp_create_staged_page($changeset_id, 'Contact', $contact_content);\n  \n  echo 'Seeded changeset with staged Home update and new Contact page';\n}"
     }
   ]
 }
