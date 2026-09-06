@@ -20,15 +20,9 @@ define( 'DCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DCP_URL', plugin_dir_url( __FILE__ ) );
 
 define( 'DCP_META_SOURCE', '_dcp_source_id' );
-define( 'DCP_META_IS_PROPOSAL', '_dcp_is_proposal' );
-define( 'DCP_META_OPEN_PROPOSAL', '_dcp_open_proposal_id' );
-define( 'DCP_META_APPROVED', '_dcp_approved' );
-define( 'DCP_META_APPROVED_BY', '_dcp_approved_by' );
-define( 'DCP_META_APPROVED_AT', '_dcp_approved_at' );
 
 require_once DCP_PATH . 'includes/caps.php';
 require_once DCP_PATH . 'includes/changesets.php';
-require_once DCP_PATH . 'includes/proposals.php';
 require_once DCP_PATH . 'includes/admin.php';
 require_once DCP_PATH . 'abilities/register.php';
 
@@ -45,14 +39,5 @@ add_action( 'init', 'dcp_init' );
  */
 function dcp_activate() {
 	dcp_register_caps();
-	foreach ( array( 'administrator', 'editor' ) as $role_name ) {
-		$role = get_role( $role_name );
-		if ( ! $role ) {
-			continue;
-		}
-		$role->add_cap( 'create_content_proposals' );
-		$role->add_cap( 'edit_content_proposals' );
-		$role->add_cap( 'apply_content_proposals' );
-	}
 }
 register_activation_hook( __FILE__, 'dcp_activate' );
