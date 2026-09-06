@@ -258,6 +258,316 @@ function dcp_register_abilities() {
 			),
 		)
 	);
+
+	wp_register_ability(
+		'draft-changes/create-changeset',
+		array(
+			'label'               => __( 'Create changeset', 'draft-changes' ),
+			'description'         => __( 'Create a new changeset (staging session). Returns changeset_id, uuid, preview_url, and status. Use this to start accumulating changes without touching live.', 'draft-changes' ),
+			'category'            => 'content-proposals',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'title' => array(
+						'type'        => 'string',
+						'description' => 'Optional changeset title.',
+					),
+				),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'changeset_id' => array( 'type' => 'integer' ),
+					'uuid'         => array( 'type' => 'string' ),
+					'preview_url'  => array( 'type' => 'string' ),
+					'status'       => array( 'type' => 'string' ),
+				),
+			),
+			'execute_callback'    => 'dcp_ability_create_changeset',
+			'permission_callback' => 'dcp_ability_can_create_changeset',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'public'       => true,
+				'annotations'  => array(
+					'readonly'    => false,
+					'destructive' => false,
+					'idempotent'  => false,
+				),
+			),
+		)
+	);
+
+	wp_register_ability(
+		'draft-changes/get-changeset',
+		array(
+			'label'               => __( 'Get changeset', 'draft-changes' ),
+			'description'         => __( 'Get a changeset and list of its staged content.', 'draft-changes' ),
+			'category'            => 'content-proposals',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'changeset_id' => array(
+						'type'        => 'integer',
+						'description' => 'Changeset ID.',
+						'minimum'     => 1,
+					),
+				),
+				'required'             => array( 'changeset_id' ),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'changeset_id' => array( 'type' => 'integer' ),
+					'title'        => array( 'type' => 'string' ),
+					'uuid'         => array( 'type' => 'string' ),
+					'status'       => array( 'type' => 'string' ),
+					'preview_url'  => array( 'type' => 'string' ),
+					'staged_items' => array( 'type' => 'array' ),
+				),
+			),
+			'execute_callback'    => 'dcp_ability_get_changeset',
+			'permission_callback' => 'dcp_ability_can_get_changeset',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'public'       => true,
+				'annotations'  => array(
+					'readonly'    => true,
+					'destructive' => false,
+				),
+			),
+		)
+	);
+
+	wp_register_ability(
+		'draft-changes/create-staged-page',
+		array(
+			'label'               => __( 'Create staged page', 'draft-changes' ),
+			'description'         => __( 'Create a brand-new page that lives only inside a changeset (not published until Publish Changeset). Use when creating new pages like Contact, About, etc. Returns staged_id, edit_url, and preview info.', 'draft-changes' ),
+			'category'            => 'content-proposals',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'changeset_id' => array(
+						'type'        => 'integer',
+						'description' => 'Changeset ID to stage the page in.',
+						'minimum'     => 1,
+					),
+					'title'        => array(
+						'type'        => 'string',
+						'description' => 'Page title (required).',
+					),
+					'content'      => array(
+						'type'        => 'string',
+						'description' => 'Optional page content (block markup or HTML).',
+					),
+					'slug'         => array(
+						'type'        => 'string',
+						'description' => 'Optional page slug (defaults to sanitized title).',
+					),
+				),
+				'required'             => array( 'changeset_id', 'title' ),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'staged_id'    => array( 'type' => 'integer' ),
+					'title'        => array( 'type' => 'string' ),
+					'slug'         => array( 'type' => 'string' ),
+					'edit_url'     => array( 'type' => 'string' ),
+					'preview_path' => array( 'type' => 'string' ),
+				),
+			),
+			'execute_callback'    => 'dcp_ability_create_staged_page',
+			'permission_callback' => 'dcp_ability_can_create_staged_page',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'public'       => true,
+				'annotations'  => array(
+					'readonly'    => false,
+					'destructive' => false,
+					'idempotent'  => false,
+				),
+			),
+		)
+	);
+
+	wp_register_ability(
+		'draft-changes/stage-content',
+		array(
+			'label'               => __( 'Stage content', 'draft-changes' ),
+			'description'         => __( 'Clone a published post or page into a changeset for editing without changing the live version.', 'draft-changes' ),
+			'category'            => 'content-proposals',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'changeset_id'   => array(
+						'type'        => 'integer',
+						'description' => 'Changeset ID.',
+						'minimum'     => 1,
+					),
+					'source_post_id' => array(
+						'type'        => 'integer',
+						'description' => 'ID of the published post or page to stage.',
+						'minimum'     => 1,
+					),
+				),
+				'required'             => array( 'changeset_id', 'source_post_id' ),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'staged_id'      => array( 'type' => 'integer' ),
+					'source_post_id' => array( 'type' => 'integer' ),
+					'edit_url'       => array( 'type' => 'string' ),
+				),
+			),
+			'execute_callback'    => 'dcp_ability_stage_content',
+			'permission_callback' => 'dcp_ability_can_stage_content',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'public'       => true,
+				'annotations'  => array(
+					'readonly'    => false,
+					'destructive' => false,
+					'idempotent'  => false,
+				),
+			),
+		)
+	);
+
+	wp_register_ability(
+		'draft-changes/update-staged-content',
+		array(
+			'label'               => __( 'Update staged content', 'draft-changes' ),
+			'description'         => __( 'Update title, content, and/or excerpt of staged content in a changeset.', 'draft-changes' ),
+			'category'            => 'content-proposals',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'staged_id' => array(
+						'type'        => 'integer',
+						'description' => 'Staged content ID.',
+						'minimum'     => 1,
+					),
+					'title'     => array(
+						'type'        => 'string',
+						'description' => 'New title.',
+					),
+					'content'   => array(
+						'type'        => 'string',
+						'description' => 'New content (block markup or HTML).',
+					),
+					'excerpt'   => array(
+						'type'        => 'string',
+						'description' => 'New excerpt.',
+					),
+				),
+				'required'             => array( 'staged_id' ),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'staged_id'    => array( 'type' => 'integer' ),
+					'modified_gmt' => array( 'type' => 'string' ),
+				),
+			),
+			'execute_callback'    => 'dcp_ability_update_staged_content',
+			'permission_callback' => 'dcp_ability_can_update_staged_content',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'public'       => true,
+				'annotations'  => array(
+					'readonly'    => false,
+					'destructive' => false,
+					'idempotent'  => true,
+				),
+			),
+		)
+	);
+
+	wp_register_ability(
+		'draft-changes/approve-changeset',
+		array(
+			'label'               => __( 'Approve changeset', 'draft-changes' ),
+			'description'         => __( 'Human approval gate before an agent can Publish Changeset.', 'draft-changes' ),
+			'category'            => 'content-proposals',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'changeset_id' => array(
+						'type'        => 'integer',
+						'description' => 'Changeset ID.',
+						'minimum'     => 1,
+					),
+				),
+				'required'             => array( 'changeset_id' ),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'changeset_id' => array( 'type' => 'integer' ),
+					'approved'     => array( 'type' => 'boolean' ),
+				),
+			),
+			'execute_callback'    => 'dcp_ability_approve_changeset',
+			'permission_callback' => 'dcp_ability_can_approve_changeset',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'public'       => true,
+				'annotations'  => array(
+					'readonly'    => false,
+					'destructive' => false,
+					'idempotent'  => true,
+				),
+			),
+		)
+	);
+
+	wp_register_ability(
+		'draft-changes/publish-changeset',
+		array(
+			'label'               => __( 'Publish changeset', 'draft-changes' ),
+			'description'         => __( 'Apply all staged content to live (merge existing sources, publish new pages), then close the changeset. Requires human approval first. Use after Approve Changeset when asked to publish the changeset.', 'draft-changes' ),
+			'category'            => 'content-proposals',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'changeset_id' => array(
+						'type'        => 'integer',
+						'description' => 'Changeset ID.',
+						'minimum'     => 1,
+					),
+				),
+				'required'             => array( 'changeset_id' ),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'changeset_id'        => array( 'type' => 'integer' ),
+					'applied_count'       => array( 'type' => 'integer' ),
+					'published_new_count' => array( 'type' => 'integer' ),
+				),
+			),
+			'execute_callback'    => 'dcp_ability_publish_changeset',
+			'permission_callback' => 'dcp_ability_can_publish_changeset',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'public'       => true,
+				'annotations'  => array(
+					'readonly'    => false,
+					'destructive' => true,
+					'idempotent'  => false,
+				),
+			),
+		)
+	);
 }
 add_action( 'wp_abilities_api_init', 'dcp_register_abilities' );
 
@@ -439,5 +749,232 @@ function dcp_ability_publish_live( $input ) {
 	}
 
 	$result['view_url'] = get_permalink( $result['source_post_id'] );
+	return $result;
+}
+
+/**
+ * @param array|null $input Input.
+ * @return bool
+ */
+function dcp_ability_can_create_changeset( $input = null ) {
+	return dcp_user_can_create_proposals();
+}
+
+/**
+ * @param array|null $input Input.
+ * @return array|WP_Error
+ */
+function dcp_ability_create_changeset( $input = null ) {
+	$input = is_array( $input ) ? $input : array();
+	$title = isset( $input['title'] ) ? $input['title'] : '';
+
+	$changeset_id = dcp_create_changeset( $title );
+	if ( is_wp_error( $changeset_id ) ) {
+		return $changeset_id;
+	}
+
+	$uuid = dcp_get_changeset_uuid( $changeset_id );
+	$preview_url = home_url( '/?dcp_changeset=' . $uuid );
+
+	return array(
+		'changeset_id' => $changeset_id,
+		'uuid'         => $uuid,
+		'preview_url'  => $preview_url,
+		'status'       => 'open',
+	);
+}
+
+/**
+ * @param array $input Input.
+ * @return bool
+ */
+function dcp_ability_can_get_changeset( $input ) {
+	$changeset_id = isset( $input['changeset_id'] ) ? (int) $input['changeset_id'] : 0;
+	return $changeset_id && current_user_can( 'edit_post', $changeset_id );
+}
+
+/**
+ * @param array $input Input.
+ * @return array|WP_Error
+ */
+function dcp_ability_get_changeset( $input ) {
+	$changeset_id = (int) $input['changeset_id'];
+	$changeset    = get_post( $changeset_id );
+
+	if ( ! $changeset || 'dcp_changeset' !== $changeset->post_type ) {
+		return new WP_Error( 'dcp_invalid_changeset', __( 'Invalid changeset.', 'draft-changes' ) );
+	}
+
+	$uuid = dcp_get_changeset_uuid( $changeset_id );
+	$status = get_post_meta( $changeset_id, DCP_META_CHANGESET_STATUS, true );
+	$staged_items = dcp_list_staged_content( $changeset_id );
+
+	return array(
+		'changeset_id' => $changeset_id,
+		'title'        => $changeset->post_title,
+		'uuid'         => $uuid,
+		'status'       => $status,
+		'preview_url'  => home_url( '/?dcp_changeset=' . $uuid ),
+		'staged_items' => $staged_items,
+	);
+}
+
+/**
+ * @param array $input Input.
+ * @return bool
+ */
+function dcp_ability_can_create_staged_page( $input ) {
+	$changeset_id = isset( $input['changeset_id'] ) ? (int) $input['changeset_id'] : 0;
+	return $changeset_id && dcp_user_can_create_proposals();
+}
+
+/**
+ * @param array $input Input.
+ * @return array|WP_Error
+ */
+function dcp_ability_create_staged_page( $input ) {
+	$changeset_id = (int) $input['changeset_id'];
+	$title        = isset( $input['title'] ) ? $input['title'] : '';
+	$content      = isset( $input['content'] ) ? $input['content'] : '';
+	$slug         = isset( $input['slug'] ) ? $input['slug'] : '';
+
+	$staged_id = dcp_create_staged_page( $changeset_id, $title, $content, $slug );
+	if ( is_wp_error( $staged_id ) ) {
+		return $staged_id;
+	}
+
+	$staged = get_post( $staged_id );
+	$uuid = dcp_get_changeset_uuid( $changeset_id );
+
+	return array(
+		'staged_id'    => $staged_id,
+		'title'        => $staged->post_title,
+		'slug'         => $staged->post_name,
+		'edit_url'     => get_edit_post_link( $staged_id, 'raw' ),
+		'preview_path' => '/' . $staged->post_name . '/?dcp_changeset=' . $uuid,
+	);
+}
+
+/**
+ * @param array $input Input.
+ * @return bool
+ */
+function dcp_ability_can_stage_content( $input ) {
+	$changeset_id = isset( $input['changeset_id'] ) ? (int) $input['changeset_id'] : 0;
+	$source_id    = isset( $input['source_post_id'] ) ? (int) $input['source_post_id'] : 0;
+	return $changeset_id && $source_id && dcp_user_can_create_proposals() && current_user_can( 'edit_post', $source_id );
+}
+
+/**
+ * @param array $input Input.
+ * @return array|WP_Error
+ */
+function dcp_ability_stage_content( $input ) {
+	$changeset_id = (int) $input['changeset_id'];
+	$source_id    = (int) $input['source_post_id'];
+
+	$staged_id = dcp_stage_content( $changeset_id, $source_id );
+	if ( is_wp_error( $staged_id ) ) {
+		return $staged_id;
+	}
+
+	return array(
+		'staged_id'      => $staged_id,
+		'source_post_id' => $source_id,
+		'edit_url'       => get_edit_post_link( $staged_id, 'raw' ),
+	);
+}
+
+/**
+ * @param array $input Input.
+ * @return bool
+ */
+function dcp_ability_can_update_staged_content( $input ) {
+	$staged_id = isset( $input['staged_id'] ) ? (int) $input['staged_id'] : 0;
+	return $staged_id && dcp_is_staged( $staged_id ) && current_user_can( 'edit_post', $staged_id );
+}
+
+/**
+ * @param array $input Input.
+ * @return array|WP_Error
+ */
+function dcp_ability_update_staged_content( $input ) {
+	$staged_id = (int) $input['staged_id'];
+	$fields    = array();
+
+	foreach ( array( 'title', 'content', 'excerpt' ) as $key ) {
+		if ( array_key_exists( $key, $input ) ) {
+			$fields[ $key ] = $input[ $key ];
+		}
+	}
+
+	$result = dcp_update_staged_content( $staged_id, $fields );
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
+
+	$post = get_post( $staged_id );
+	return array(
+		'staged_id'    => $staged_id,
+		'modified_gmt' => $post ? $post->post_modified_gmt : '',
+	);
+}
+
+/**
+ * @param array $input Input.
+ * @return bool
+ */
+function dcp_ability_can_approve_changeset( $input ) {
+	$changeset_id = isset( $input['changeset_id'] ) ? (int) $input['changeset_id'] : 0;
+	return $changeset_id && dcp_user_can_apply_proposal( $changeset_id );
+}
+
+/**
+ * @param array $input Input.
+ * @return array|WP_Error
+ */
+function dcp_ability_approve_changeset( $input ) {
+	$changeset_id = (int) $input['changeset_id'];
+
+	$result = dcp_approve_changeset( $changeset_id );
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
+
+	return array(
+		'changeset_id' => $changeset_id,
+		'approved'     => true,
+	);
+}
+
+/**
+ * @param array $input Input.
+ * @return bool
+ */
+function dcp_ability_can_publish_changeset( $input ) {
+	$changeset_id = isset( $input['changeset_id'] ) ? (int) $input['changeset_id'] : 0;
+	return $changeset_id && dcp_user_can_apply_proposal( $changeset_id );
+}
+
+/**
+ * @param array $input Input.
+ * @return array|WP_Error
+ */
+function dcp_ability_publish_changeset( $input ) {
+	$changeset_id = (int) $input['changeset_id'];
+
+	if ( ! dcp_is_changeset_approved( $changeset_id ) ) {
+		return new WP_Error(
+			'dcp_not_approved',
+			__( 'A human must Approve this changeset before Publish Changeset.', 'draft-changes' )
+		);
+	}
+
+	$result = dcp_publish_changeset( $changeset_id );
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
+
+	$result['changeset_id'] = $changeset_id;
 	return $result;
 }
