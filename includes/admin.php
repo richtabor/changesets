@@ -1,6 +1,8 @@
 <?php
 /**
- * Minimal human UI: banners + admin bar + changeset/staged content support.
+ * Lean UI: Changeset bar on preview + Changesets list Preview action.
+ *
+ * No admin-bar items. Approve / Publish stay abilities (MCP).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -8,9 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Admin bar preview notice when viewing changeset.
+ * Render the Changeset bar while previewing (logged-in or not).
  */
-function dcp_admin_bar_preview( $wp_admin_bar ) {
+function dcp_render_changeset_bar() {
 	$uuid = dcp_get_active_preview_uuid();
 	if ( ! $uuid ) {
 		return;
@@ -21,401 +23,254 @@ function dcp_admin_bar_preview( $wp_admin_bar ) {
 		return;
 	}
 
+	$exit_url = add_query_arg(
+		array(
+			'dcp_exit_preview' => '1',
+			'dcp_changeset'    => false,
+		)
+	);
+
+	$title  = get_the_title( $changeset );
 	$status = dcp_get_changeset_status( $changeset->ID );
-	$exit_url = add_query_arg( 'dcp_exit_preview', '1' );
-
-	$wp_admin_bar->add_node(
-		array(
-			'id'    => 'dcp-preview',
-			'title' => sprintf(
-				/* translators: %s: changeset title */
-				__( 'Viewing changeset: %s', 'draft-changes' ),
-				esc_html( $changeset->post_title )
-			),
-			'href'  => get_edit_post_link( $changeset->ID ),
-			'meta'  => array(
-				'class' => 'dcp-preview-notice',
-			),
-		)
-	);
-
-	$wp_admin_bar->add_node(
-		array(
-			'id'     => 'dcp-exit-preview',
-			'parent' => 'dcp-preview',
-			'title'  => __( 'Exit Preview', 'draft-changes' ),
-			'href'   => $exit_url,
-		)
-	);
-
-	if ( 'approved' === $status && dcp_user_can_publish_changeset( $changeset->ID ) ) {
-		$publish_url = wp_nonce_url(
-			admin_url( 'admin-post.php?action=dcp_publish_changeset&changeset_id=' . $changeset->ID ),
-			'dcp_publish_changeset_' . $changeset->ID
-		);
-		$wp_admin_bar->add_node(
-			array(
-				'id'     => 'dcp-publish-changeset',
-				'parent' => 'dcp-preview',
-				'title'  => __( 'Publish Changeset', 'draft-changes' ),
-				'href'   => $publish_url,
-			)
-		);
-	}
-}
-add_action( 'admin_bar_menu', 'dcp_admin_bar_preview', 100 );
-
-/**
- * Add CSS for admin bar preview notice.
- */
-function dcp_admin_bar_css() {
-	$uuid = dcp_get_active_preview_uuid();
-	if ( ! $uuid ) {
-		return;
-	}
 	?>
-	<style>
-		#wpadminbar .dcp-preview-notice {
-			background: #f0f0f1;
+		<style>
+		/* Match WP admin bar: fixed desktop, absolute (scrolls away) mobile. */
+		html.dcp-previewing {
+			--dcp-changeset-bar-height: 32px;
+			margin-top: var(--dcp-changeset-bar-height) !important;
+		}
+		html.dcp-previewing.admin-bar {
+			margin-top: calc(32px + var(--dcp-changeset-bar-height)) !important;
+		}
+		.dcp-changeset-bar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			z-index: 99998;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			box-sizing: border-box;
+			width: 100%;
+			height: var(--dcp-changeset-bar-height);
+			padding: 0 14px;
+			background: #1e1e1e;
+			color: #f0f0f0;
+			font: 13px/32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+		}
+		body.admin-bar .dcp-changeset-bar {
+			top: 32px;
+		}
+		.dcp-changeset-bar__label {
+			display: flex;
+			align-items: baseline;
+			gap: 8px;
+			min-width: 0;
+			overflow: hidden;
+		}
+		.dcp-changeset-bar__kicker {
+			opacity: 0.7;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			font-size: 11px;
+			font-weight: 600;
+			flex: 0 0 auto;
+		}
+		.dcp-changeset-bar__title {
+			font-weight: 600;
+			color: #fff;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.dcp-changeset-bar__status {
+			opacity: 0.75;
+			font-size: 12px;
+			flex: 0 0 auto;
+		}
+		.dcp-changeset-bar__exit {
+			flex: 0 0 auto;
+			display: inline-block;
+			background: #fcf9e8;
+			color: #1e1e1e;
+			font-weight: 600;
+			line-height: 1;
+			text-decoration: none;
+			padding: 6px 10px;
+			border-radius: 2px;
+			-webkit-tap-highlight-color: transparent;
+		}
+		.dcp-changeset-bar__exit:hover,
+		.dcp-changeset-bar__exit:focus {
+			background: #fff3bf;
 			color: #000;
 		}
-		#wpadminbar .dcp-preview-notice > .ab-item {
-			background: #fcf9e8;
-			color: #000;
-			font-weight: 600;
+		/* Sticky site headers sit below the Changeset bar (same idea as admin-bar). */
+		html.dcp-previewing .is-position-sticky {
+			top: var(--dcp-changeset-bar-height) !important;
+		}
+		html.dcp-previewing.admin-bar .is-position-sticky {
+			top: calc(32px + var(--dcp-changeset-bar-height)) !important;
+		}
+		/* Mobile nav overlay must paint above the Changeset bar. */
+		html.dcp-previewing .wp-block-navigation__responsive-container.is-menu-open {
+			z-index: 100001 !important;
+		}
+		html.dcp-previewing.has-modal-open .is-menu-open:where(:not(.disable-default-overlay)) .wp-block-navigation__responsive-dialog {
+			margin-top: var(--dcp-changeset-bar-height);
+		}
+		html.dcp-previewing.admin-bar.has-modal-open .is-menu-open:where(:not(.disable-default-overlay)) .wp-block-navigation__responsive-dialog {
+			margin-top: calc(46px + var(--dcp-changeset-bar-height));
+		}
+		@media screen and (max-width: 782px) {
+			html.dcp-previewing {
+				--dcp-changeset-bar-height: 46px;
+			}
+			.dcp-changeset-bar {
+				position: absolute;
+				font-size: 14px;
+				line-height: 46px;
+				padding: 0 12px;
+			}
+			body.admin-bar .dcp-changeset-bar {
+				top: 46px;
+			}
+			html.dcp-previewing.admin-bar .is-position-sticky {
+				top: calc(46px + var(--dcp-changeset-bar-height)) !important;
+			}
+			html.dcp-previewing.admin-bar.has-modal-open .is-menu-open:where(:not(.disable-default-overlay)) .wp-block-navigation__responsive-dialog {
+				margin-top: calc(46px + var(--dcp-changeset-bar-height));
+			}
+			.dcp-changeset-bar__exit {
+				padding: 8px 12px;
+			}
+		}
+		@media screen and (min-width: 783px) {
+			html.dcp-previewing.admin-bar.has-modal-open .is-menu-open:where(:not(.disable-default-overlay)) .wp-block-navigation__responsive-dialog {
+				margin-top: calc(32px + var(--dcp-changeset-bar-height));
+			}
 		}
 	</style>
+	<div class="dcp-changeset-bar" role="region" aria-label="<?php echo esc_attr__( 'Changeset preview', 'draft-changes' ); ?>">
+		<div class="dcp-changeset-bar__label">
+			<span class="dcp-changeset-bar__kicker"><?php echo esc_html__( 'Changeset', 'draft-changes' ); ?></span>
+			<span class="dcp-changeset-bar__title"><?php echo esc_html( $title ); ?></span>
+			<?php if ( $status && 'open' !== $status ) : ?>
+				<span class="dcp-changeset-bar__status"><?php echo esc_html( $status ); ?></span>
+			<?php endif; ?>
+		</div>
+		<a class="dcp-changeset-bar__exit" href="<?php echo esc_url( $exit_url ); ?>">
+			<?php echo esc_html__( 'Exit Changeset', 'draft-changes' ); ?>
+		</a>
+	</div>
 	<?php
 }
-add_action( 'wp_head', 'dcp_admin_bar_css' );
-add_action( 'admin_head', 'dcp_admin_bar_css' );
+add_action( 'wp_body_open', 'dcp_render_changeset_bar', 1 );
+add_action( 'wp_footer', 'dcp_render_changeset_bar_footer_fallback', 1 );
 
 /**
- * Admin notice / banner on changeset, staged, and proposal editors.
+ * Fallback if the theme never calls wp_body_open.
  */
-function dcp_admin_notices() {
-	if ( isset( $_GET['dcp_approved'] ) ) {
-		echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Changeset approved. An agent can Publish Changeset now.', 'draft-changes' ) . '</p></div>';
-	}
-
-	if ( isset( $_GET['dcp_published'] ) ) {
-		echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Changeset published! All changes are now live.', 'draft-changes' ) . '</p></div>';
-	}
-
-	$screen = get_current_screen();
-	if ( ! $screen || 'post' !== $screen->base ) {
+function dcp_render_changeset_bar_footer_fallback() {
+	if ( did_action( 'wp_body_open' ) ) {
 		return;
 	}
-
-	$post_id = isset( $_GET['post'] ) ? (int) $_GET['post'] : 0;
-	if ( ! $post_id ) {
-		return;
-	}
-
-	// Changeset edit screen
-	if ( 'dcp_changeset' === get_post_type( $post_id ) ) {
-		$status       = dcp_get_changeset_status( $post_id );
-		$preview_url  = dcp_get_preview_url( $post_id );
-		$staged_count = count( dcp_get_staged_drafts( $post_id ) );
-
-		echo '<div class="notice notice-info" style="padding:12px 16px"><p style="margin:0 0 8px">';
-		echo '<strong>' . esc_html__( 'Changeset', 'draft-changes' ) . '</strong>: ';
-		echo esc_html(
-			sprintf(
-				/* translators: %d: number of staged items */
-				_n( '%d staged item', '%d staged items', $staged_count, 'draft-changes' ),
-				$staged_count
-			)
-		);
-		echo '</p>';
-
-		echo '<p style="margin:0 0 8px"><a class="button button-secondary" href="' . esc_url( $preview_url ) . '" target="_blank">' . esc_html__( 'Preview Changeset', 'draft-changes' ) . '</a></p>';
-
-		if ( 'approved' === $status && dcp_user_can_publish_changeset( $post_id ) ) {
-			$publish_url = wp_nonce_url(
-				admin_url( 'admin-post.php?action=dcp_publish_changeset&changeset_id=' . $post_id ),
-				'dcp_publish_changeset_' . $post_id
-			);
-			echo '<p style="margin:0"><a class="button button-primary" href="' . esc_url( $publish_url ) . '">' . esc_html__( 'Publish Changeset', 'draft-changes' ) . '</a></p>';
-		} elseif ( 'open' === $status && dcp_user_can_approve_changeset( $post_id ) ) {
-			$approve_url = wp_nonce_url(
-				admin_url( 'admin-post.php?action=dcp_approve_changeset&changeset_id=' . $post_id ),
-				'dcp_approve_changeset_' . $post_id
-			);
-			echo '<p style="margin:0"><a class="button button-secondary" href="' . esc_url( $approve_url ) . '">' . esc_html__( 'Approve Changeset', 'draft-changes' ) . '</a></p>';
-		}
-
-		echo '</div>';
-		return;
-	}
-
-	// Staged content edit screen
-	if ( dcp_is_staged( $post_id ) ) {
-		$changeset_id = dcp_get_staged_changeset_id( $post_id );
-		$changeset    = dcp_get_changeset( $changeset_id );
-		$source_id    = dcp_get_staged_source_id( $post_id );
-		$source       = get_post( $source_id );
-		$title        = $changeset ? $changeset->post_title : __( '(unknown)', 'draft-changes' );
-		$edit         = $changeset ? get_edit_post_link( $changeset->ID ) : '';
-
-		echo '<div class="notice notice-info" style="padding:12px 16px"><p style="margin:0 0 8px">';
-		echo esc_html(
-			sprintf(
-				/* translators: %s: changeset title */
-				__( 'Part of changeset: %s', 'draft-changes' ),
-				$title
-			)
-		);
-		if ( $edit ) {
-			echo ' <a href="' . esc_url( $edit ) . '">' . esc_html__( 'View changeset', 'draft-changes' ) . '</a>';
-		}
-		echo '</p>';
-
-		if ( $source ) {
-			$source_edit = get_edit_post_link( $source_id );
-			echo '<p style="margin:0">' . esc_html__( 'Source: ', 'draft-changes' ) . esc_html( $source->post_title );
-			if ( $source_edit ) {
-				echo ' <a href="' . esc_url( $source_edit ) . '">' . esc_html__( 'View live', 'draft-changes' ) . '</a>';
-			}
-			echo '</p>';
-		}
-
-		echo '</div>';
-		return;
-	}
-
-	// Legacy proposal edit screen
-	if ( dcp_is_proposal( $post_id ) ) {
-		$source_id = dcp_get_source_id( $post_id );
-		$source    = get_post( $source_id );
-		$title     = $source ? $source->post_title : __( '(missing)', 'draft-changes' );
-		$edit      = $source_id ? get_edit_post_link( $source_id ) : '';
-		$approved  = dcp_is_approved( $post_id );
-
-		echo '<div class="notice notice-info" style="padding:12px 16px"><p style="margin:0 0 8px">';
-		echo esc_html(
-			sprintf(
-				/* translators: %s: source post title */
-				__( 'This is a proposal. Live content stays published until Publish Live. Source: %s', 'draft-changes' ),
-				$title
-			)
-		);
-		if ( $edit ) {
-			echo ' <a href="' . esc_url( $edit ) . '">' . esc_html__( 'Open live post', 'draft-changes' ) . '</a>';
-		}
-		echo '</p>';
-
-		if ( dcp_user_can_apply_proposal( $post_id ) ) {
-			if ( $approved ) {
-				echo '<p style="margin:0 0 8px"><strong>' . esc_html__( 'Approved — an agent can Publish Live, or you can Publish Live yourself.', 'draft-changes' ) . '</strong></p>';
-			} else {
-				$approve_url = wp_nonce_url(
-					admin_url( 'admin-post.php?action=dcp_approve&post_id=' . $post_id ),
-					'dcp_approve_' . $post_id
-				);
-				echo '<p style="margin:0 0 8px">' . esc_html__( 'Approve first so an agent can Publish Live. Or Publish Live yourself from the editor button.', 'draft-changes' ) . '</p>';
-				echo '<p style="margin:0 0 8px"><a class="button button-secondary" href="' . esc_url( $approve_url ) . '">' . esc_html__( 'Approve', 'draft-changes' ) . '</a></p>';
-			}
-			$url = wp_nonce_url(
-				admin_url( 'admin-post.php?action=dcp_apply&post_id=' . $post_id ),
-				'dcp_apply_' . $post_id
-			);
-			echo '<p style="margin:0"><a class="button button-primary" href="' . esc_url( $url ) . '">' . esc_html__( 'Publish Live', 'draft-changes' ) . '</a></p>';
-		} else {
-			echo '<p style="margin:0">' . esc_html__( 'You do not have permission to approve or publish this proposal.', 'draft-changes' ) . '</p>';
-		}
-		echo '</div>';
-		return;
-	}
-
-	$open = dcp_get_open_proposal_id( $post_id );
-	if ( $open ) {
-		$url = get_edit_post_link( $open );
-		echo '<div class="notice notice-warning"><p>';
-		echo esc_html__( 'There is an open proposal for this published content.', 'draft-changes' );
-		if ( $url ) {
-			echo ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Review proposal', 'draft-changes' ) . '</a>';
-		}
-		echo '</p></div>';
-	}
+	dcp_render_changeset_bar();
 }
-add_action( 'admin_notices', 'dcp_admin_notices' );
 
 /**
- * Handle Approve Changeset via admin-post.
- */
-function dcp_handle_approve_changeset() {
-	$changeset_id = isset( $_GET['changeset_id'] ) ? (int) $_GET['changeset_id'] : 0;
-	check_admin_referer( 'dcp_approve_changeset_' . $changeset_id );
-	if ( ! $changeset_id || ! dcp_user_can_approve_changeset( $changeset_id ) ) {
-		wp_die( esc_html__( 'Cannot approve this changeset.', 'draft-changes' ) );
-	}
-	$result = dcp_approve_changeset( $changeset_id );
-	if ( is_wp_error( $result ) ) {
-		wp_die( esc_html( $result->get_error_message() ) );
-	}
-	wp_safe_redirect( add_query_arg( 'dcp_approved', '1', get_edit_post_link( $changeset_id, 'raw' ) ) );
-	exit;
-}
-add_action( 'admin_post_dcp_approve_changeset', 'dcp_handle_approve_changeset' );
-
-/**
- * Handle Publish Changeset via admin-post.
- */
-function dcp_handle_publish_changeset() {
-	$changeset_id = isset( $_GET['changeset_id'] ) ? (int) $_GET['changeset_id'] : 0;
-	check_admin_referer( 'dcp_publish_changeset_' . $changeset_id );
-	if ( ! $changeset_id || ! dcp_user_can_publish_changeset( $changeset_id ) ) {
-		wp_die( esc_html__( 'Cannot publish this changeset.', 'draft-changes' ) );
-	}
-	$result = dcp_publish_changeset( $changeset_id );
-	if ( is_wp_error( $result ) ) {
-		wp_die( esc_html( $result->get_error_message() ) );
-	}
-	wp_safe_redirect( add_query_arg( 'dcp_published', '1', admin_url( 'edit.php?post_type=dcp_changeset' ) ) );
-	exit;
-}
-add_action( 'admin_post_dcp_publish_changeset', 'dcp_handle_publish_changeset' );
-
-/**
- * Also show Apply in the block editor document settings via a side meta box
- * that only contains a link (no form submit — Gutenberg-safe).
+ * Changesets list: Preview opens the front-end overlay; no Quick Edit; no Edit.
  *
- * @param WP_Post $post Post.
+ * @param array   $actions Row actions.
+ * @param WP_Post $post    Post.
+ * @return array
  */
-function dcp_render_apply_metabox( $post ) {
-	if ( ! dcp_is_proposal( $post->ID ) ) {
-		echo '<p>' . esc_html__( 'Not a proposal.', 'draft-changes' ) . '</p>';
-		return;
-	}
-	if ( ! dcp_user_can_apply_proposal( $post->ID ) ) {
-		echo '<p>' . esc_html__( 'You do not have permission to apply this proposal.', 'draft-changes' ) . '</p>';
-		return;
+function dcp_changeset_row_actions( $actions, $post ) {
+	if ( ! $post || 'dcp_changeset' !== $post->post_type ) {
+		return $actions;
 	}
 
-	$url = wp_nonce_url(
-		admin_url( 'admin-post.php?action=dcp_apply&post_id=' . (int) $post->ID ),
-		'dcp_apply_' . (int) $post->ID
-	);
-	$approved = dcp_is_approved( $post->ID );
-	if ( ! $approved ) {
-		$approve_url = wp_nonce_url(
-			admin_url( 'admin-post.php?action=dcp_approve&post_id=' . (int) $post->ID ),
-			'dcp_approve_' . (int) $post->ID
-		);
-		echo '<p>' . esc_html__( 'Approve so an agent can Publish Live. You can also Publish Live yourself anytime.', 'draft-changes' ) . '</p>';
-		echo '<p><a class="button" href="' . esc_url( $approve_url ) . '">' . esc_html__( 'Approve', 'draft-changes' ) . '</a></p>';
-	} else {
-		echo '<p><strong>' . esc_html__( 'Approved — agent may Publish Live.', 'draft-changes' ) . '</strong></p>';
-	}
-	echo '<p><a class="button button-primary" href="' . esc_url( $url ) . '">' . esc_html__( 'Publish Live', 'draft-changes' ) . '</a></p>';
-}
+	$trash  = isset( $actions['trash'] ) ? array( 'trash' => $actions['trash'] ) : array();
+	$status = dcp_get_changeset_status( $post->ID );
+	$url    = dcp_get_preview_url( $post->ID );
 
-/**
- * Register metabox (visible under Panels in the block editor).
- */
-function dcp_add_metaboxes() {
-	foreach ( array( 'post', 'page' ) as $type ) {
-		add_meta_box(
-			'dcp_apply',
-			__( 'Draft Changes', 'draft-changes' ),
-			'dcp_render_apply_metabox',
-			$type,
-			'side',
-			'high'
+	$out = array();
+	if ( $url && in_array( $status, array( 'open', 'approved' ), true ) ) {
+		$out['dcp_preview'] = sprintf(
+			'<a href="%s">%s</a>',
+			esc_url( $url ),
+			esc_html__( 'Preview Changeset', 'draft-changes' )
 		);
 	}
+
+	return $out + $trash;
 }
-add_action( 'add_meta_boxes', 'dcp_add_metaboxes' );
+add_filter( 'post_row_actions', 'dcp_changeset_row_actions', 10, 2 );
 
 /**
- * Handle Apply to live via admin-post (works from block editor link).
+ * Point list title / edit link at Preview for open changesets.
+ *
+ * @param string      $url     Edit URL.
+ * @param int|WP_Post $post_id Post.
+ * @param string      $context Context.
+ * @return string
  */
+function dcp_changeset_edit_link_to_preview( $url, $post_id, $context = 'display' ) {
+	$post = get_post( $post_id );
+	if ( ! $post || 'dcp_changeset' !== $post->post_type ) {
+		return $url;
+	}
+	$status  = dcp_get_changeset_status( $post->ID );
+	$preview = dcp_get_preview_url( $post->ID );
+	if ( $preview && in_array( $status, array( 'open', 'approved' ), true ) ) {
+		return $preview;
+	}
+	return $url;
+}
+add_filter( 'get_edit_post_link', 'dcp_changeset_edit_link_to_preview', 10, 3 );
 
 /**
- * Human Approve — unlocks agent Publish Live ability.
+ * Hide Quick Edit on the Changesets list.
  */
-function dcp_handle_approve() {
-	$post_id = isset( $_GET['post_id'] ) ? (int) $_GET['post_id'] : 0;
-	check_admin_referer( 'dcp_approve_' . $post_id );
-	if ( ! $post_id || ! dcp_user_can_apply_proposal( $post_id ) ) {
-		wp_die( esc_html__( 'Cannot approve this proposal.', 'draft-changes' ) );
-	}
-	$result = dcp_approve_proposal( $post_id );
-	if ( is_wp_error( $result ) ) {
-		wp_die( esc_html( $result->get_error_message() ) );
-	}
-	wp_safe_redirect( add_query_arg( 'dcp_approved', '1', get_edit_post_link( $post_id, 'raw' ) ) );
-	exit;
-}
-add_action( 'admin_post_dcp_approve', 'dcp_handle_approve' );
-
-function dcp_handle_apply_post() {
-	$post_id = isset( $_GET['post_id'] ) ? (int) $_GET['post_id'] : 0;
-	if ( ! $post_id || ! dcp_is_proposal( $post_id ) ) {
-		wp_die( esc_html__( 'Invalid proposal.', 'draft-changes' ) );
-	}
-
-	check_admin_referer( 'dcp_apply_' . $post_id );
-
-	if ( ! dcp_user_can_apply_proposal( $post_id ) ) {
-		wp_die( esc_html__( 'Sorry, you are not allowed to apply this proposal.', 'draft-changes' ) );
-	}
-
-	$result = dcp_apply_proposal( $post_id );
-	if ( is_wp_error( $result ) ) {
-		wp_die( esc_html( $result->get_error_message() ) );
-	}
-
-	$redirect = get_edit_post_link( $result['source_post_id'], 'raw' );
-	wp_safe_redirect( add_query_arg( 'dcp_applied', '1', $redirect ) );
-	exit;
-}
-add_action( 'admin_post_dcp_apply', 'dcp_handle_apply_post' );
-
-/**
- * Success notice after apply.
- */
-function dcp_applied_notice() {
-	if ( empty( $_GET['dcp_applied'] ) ) {
+function dcp_disable_changeset_quick_edit() {
+	$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+	if ( ! $screen || 'edit-dcp_changeset' !== $screen->id ) {
 		return;
 	}
-	echo '<div class="notice notice-success is-dismissible"><p>';
-	echo esc_html__( 'Proposal applied to the live post. A revision was saved for undo.', 'draft-changes' );
-	echo '</p></div>';
+	wp_add_inline_style(
+		'common',
+		'.post-type-dcp_changeset .row-actions .inline, .post-type-dcp_changeset button.editinline { display: none !important; }'
+	);
 }
-add_action( 'admin_notices', 'dcp_applied_notice' );
-
+add_action( 'admin_enqueue_scripts', 'dcp_disable_changeset_quick_edit' );
 
 /**
- * Block editor: relabel Publish → Publish Live on proposals.
+ * Mark preview sessions on <html> for admin-bar-like offset.
+ *
+ * @param array $classes Classes.
+ * @return array
  */
-function dcp_enqueue_editor_assets() {
-	$post_id = isset( $_GET['post'] ) ? (int) $_GET['post'] : 0;
-	if ( ! $post_id || ! dcp_is_proposal( $post_id ) ) {
-		return;
+function dcp_previewing_admin_body_class( $classes ) {
+	if ( dcp_get_active_preview_uuid() && dcp_get_changeset( dcp_get_active_preview_uuid() ) ) {
+		$classes[] = 'dcp-previewing';
 	}
-
-	$source_id   = dcp_get_source_id( $post_id );
-	$source_edit = $source_id ? get_edit_post_link( $source_id, 'raw' ) : '';
-	$source_edit = $source_edit ? add_query_arg( 'dcp_applied', '1', $source_edit ) : '';
-
-	wp_enqueue_script(
-		'dcp-editor',
-		DCP_URL . 'assets/editor.js',
-		array( 'wp-data', 'wp-dom-ready', 'wp-editor' ),
-		DCP_VERSION,
-		true
-	);
-	wp_localize_script(
-		'dcp-editor',
-		'dcpEditor',
-		array(
-			'isProposal'    => true,
-			'sourceEditUrl' => $source_edit,
-			'proposalId'    => $post_id,
-			'sourceId'      => $source_id,
-		)
-	);
+	return $classes;
 }
-add_action( 'enqueue_block_editor_assets', 'dcp_enqueue_editor_assets' );
+add_filter( 'body_class', 'dcp_previewing_admin_body_class' );
+
+/**
+ * @param string $output Language attributes.
+ * @return string
+ */
+function dcp_previewing_html_class( $output ) {
+	if ( dcp_get_active_preview_uuid() && dcp_get_changeset( dcp_get_active_preview_uuid() ) ) {
+		if ( false !== strpos( $output, 'class="' ) ) {
+			$output = str_replace( 'class="', 'class="dcp-previewing ', $output );
+		} else {
+			$output .= ' class="dcp-previewing"';
+		}
+	}
+	return $output;
+}
+add_filter( 'language_attributes', 'dcp_previewing_html_class' );

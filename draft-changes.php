@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Draft Changes
  * Description:       Let agents accumulate edits in a Changeset, preview them on the real site, then Publish Changeset after human approval.
- * Version:           0.2.0
+ * Version:           0.2.17
  * Requires at least: 6.9
  * Requires PHP:      7.4
  * Author:            Rich Tabor
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DCP_VERSION', '0.2.0' );
+define( 'DCP_VERSION', '0.2.17' );
 define( 'DCP_FILE', __FILE__ );
 define( 'DCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DCP_URL', plugin_dir_url( __FILE__ ) );
