@@ -1,4 +1,4 @@
-# Draft Changes — build spec (changeset)
+# Changesets — build spec (changeset)
 
 Lean WordPress plugin: agents and humans accumulate unpublished site edits in a **Changeset**, preview them on the real site without touching live, then **Publish Changeset**.
 
@@ -12,7 +12,7 @@ Lean WordPress plugin: agents and humans accumulate unpublished site edits in a 
 | **Publish Changeset** | Apply all ops in the changeset to live, then close it |
 | Op / entity draft | Internal: a staged clone of a page, template, nav, etc. — not user-facing jargon |
 
-Do **not** use “proposal”, “staging site”, or “Apply to live” as primary UX labels. Keep Ability/API names under `draft-changes/`.
+Do **not** use “proposal”, “staging site”, or “Apply to live” as primary UX labels. Keep Ability/API names under `changesets/`.
 
 ## Product principle
 
@@ -32,14 +32,14 @@ Humans ask for **site outcomes** (“add Contact to the nav”, “warm up the c
 
 Inspired by Customizer **changesets** (`customize_changeset` + preview UUID), adapted to block-theme entities (which are already posts).
 
-### 1. CPT `dcp_changeset`
+### 1. CPT `cs_changeset`
 
 - `post_title` = human label (“Add Contact”, “Home copy pass”)
 - Status: `draft` (open) → `pending` (approved) → published/closed via meta after Publish Changeset (or trash on discard)
 - Meta:
-  - `_dcp_changeset_uuid` — public preview token
-  - `_dcp_changeset_status` — `open` | `approved` | `published` | `discarded`
-  - `_dcp_approved_by`, `_dcp_approved_at` when approved
+  - `_cs_changeset_uuid` — public preview token
+  - `_cs_changeset_status` — `open` | `approved` | `published` | `discarded`
+  - `_cs_approved_by`, `_cs_approved_at` when approved
 
 ### 2. Staged entity drafts (ops)
 
@@ -47,7 +47,7 @@ Everything visitor-facing that is already a WP post type gets a **draft clone** 
 
 | Entity | post_type | Meta on clone |
 |---|---|---|
-| Page / post | `page` / `post` | `_dcp_changeset_id`, `_dcp_source_id`, `_dcp_is_staged` |
+| Page / post | `page` / `post` | `_cs_changeset_id`, `_cs_source_id`, `_cs_is_staged` |
 | Template | `wp_template` | same |
 | Template part | `wp_template_part` | same |
 | Global styles | `wp_global_styles` | same |
@@ -77,7 +77,7 @@ Then mark changeset `published` and clear preview cookie.
 
 **Approve Changeset** is required before agent **Publish Changeset** (human gate). Human may Publish Changeset from UI without a separate step if they are the publisher.
 
-## Abilities (`draft-changes/`)
+## Abilities (`changesets/`)
 
 Category: `changesets` (label: "Changesets")
 
@@ -85,17 +85,17 @@ Category: `changesets` (label: "Changesets")
 
 | Ability | Notes |
 |---|---|
-| `create-changeset` | `{ title? }` → `{ changeset_id, uuid, preview_url, status }` |
-| `get-changeset` | changeset + list of staged entity summaries |
-| `list-changesets` | open/approved |
-| `stage-content` | `{ changeset_id, source_post_id }` — clone page/post into changeset |
+| `changesets/create` | `{ title? }` → `{ changeset_id, uuid, preview_url, status }` |
+| `changesets/get` | changeset + list of staged entity summaries |
+| `changesets/list` | open/approved |
+| `changesets/stage-page` | `{ changeset_id, source_post_id }` — clone page/post into changeset |
 | `create-staged-page` | `{ changeset_id, title, content?, slug? }` — brand new page in changeset |
-| `update-staged-content` | `{ staged_id, title?, content?, excerpt? }` |
+| `changesets/stage-page` | `{ staged_id, title?, content?, excerpt? }` |
 | `stage-setting` | `{ changeset_id, key, value }` — stage options (homepage, site title, etc.) |
 | `stage-global-styles` | `{ changeset_id, settings?, styles? }` — stage theme.json edits |
 | `stage-style-variation` | `{ changeset_id, variation }` — apply theme style variation |
-| `approve-changeset` | human approval gate |
-| `publish-changeset` | requires approved (for agents); applies all ops |
+| `changesets/approve` | human approval gate |
+| `changesets/publish` | requires approved (for agents); applies all ops |
 
 ## Permissions
 
@@ -118,13 +118,13 @@ Category: `changesets` (label: "Changesets")
 
 ## Demo script (MCP — no SSH)
 
-**Requires hosted WordPress** with Draft Changes + MCP Adapter + Application Password.
+**Requires hosted WordPress** with Changesets + MCP Adapter + Application Password.
 
-1. `create-changeset` “Home copy”
-2. `stage-content` for Home → `update-staged-content` (heading change)
+1. `changesets/create` “Home copy”
+2. `changesets/stage-page` for Home → `changesets/stage-page` (heading change)
 3. Open `preview_url` — see change; Exit — see live unchanged
 4. Human: Approve Changeset (ability or UI)
-5. `publish-changeset` — live updates; staged drafts gone
+5. `changesets/publish` — live updates; staged drafts gone
 
 
 ## Success criteria

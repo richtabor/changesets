@@ -8,23 +8,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Register CPT dcp_changeset.
+ * Register CPT cs_changeset.
  */
-function dcp_register_changeset_cpt() {
+function cs_register_changeset_cpt() {
 	register_post_type(
-		'dcp_changeset',
+		'cs_changeset',
 		array(
 			'labels'              => array(
-				'name'               => __( 'Changesets', 'draft-changes' ),
-				'singular_name'      => __( 'Changeset', 'draft-changes' ),
-				'add_new'            => __( 'Add New', 'draft-changes' ),
-				'add_new_item'       => __( 'Add New Changeset', 'draft-changes' ),
-				'edit_item'          => __( 'Edit Changeset', 'draft-changes' ),
-				'new_item'           => __( 'New Changeset', 'draft-changes' ),
-				'view_item'          => __( 'View Changeset', 'draft-changes' ),
-				'search_items'       => __( 'Search Changesets', 'draft-changes' ),
-				'not_found'          => __( 'No changesets found', 'draft-changes' ),
-				'not_found_in_trash' => __( 'No changesets found in Trash', 'draft-changes' ),
+				'name'               => __( 'Changesets', 'changesets' ),
+				'singular_name'      => __( 'Changeset', 'changesets' ),
+				'add_new'            => __( 'Add New', 'changesets' ),
+				'add_new_item'       => __( 'Add New Changeset', 'changesets' ),
+				'edit_item'          => __( 'Edit Changeset', 'changesets' ),
+				'new_item'           => __( 'New Changeset', 'changesets' ),
+				'view_item'          => __( 'View Changeset', 'changesets' ),
+				'search_items'       => __( 'Search Changesets', 'changesets' ),
+				'not_found'          => __( 'No changesets found', 'changesets' ),
+				'not_found_in_trash' => __( 'No changesets found in Trash', 'changesets' ),
 			),
 			'public'              => false,
 			'show_ui'             => true,
@@ -40,7 +40,7 @@ function dcp_register_changeset_cpt() {
 		)
 	);
 }
-add_action( 'init', 'dcp_register_changeset_cpt' );
+add_action( 'init', 'cs_register_changeset_cpt' );
 
 /**
  * Get or create the current open changeset.
@@ -48,15 +48,15 @@ add_action( 'init', 'dcp_register_changeset_cpt' );
  * @param string|null $title Optional title for new changeset.
  * @return int|WP_Error Changeset ID.
  */
-function dcp_get_open_changeset( $title = null ) {
+function cs_get_open_changeset( $title = null ) {
 	$existing = get_posts(
 		array(
-			'post_type'      => 'dcp_changeset',
+			'post_type'      => 'cs_changeset',
 			'post_status'    => 'draft',
 			'posts_per_page' => 1,
 			'meta_query'     => array(
 				array(
-					'key'   => '_dcp_changeset_status',
+					'key'   => '_changeset_changeset_status',
 					'value' => 'open',
 				),
 			),
@@ -69,7 +69,7 @@ function dcp_get_open_changeset( $title = null ) {
 		return $existing[0]->ID;
 	}
 
-	return dcp_create_changeset( $title );
+	return cs_create_changeset( $title );
 }
 
 /**
@@ -78,18 +78,18 @@ function dcp_get_open_changeset( $title = null ) {
  * @param string|null $title Optional title.
  * @return int|WP_Error Changeset ID.
  */
-function dcp_create_changeset( $title = null ) {
+function cs_create_changeset( $title = null ) {
 	if ( ! $title ) {
 		$title = sprintf(
 			/* translators: %s: date */
-			__( 'Changeset %s', 'draft-changes' ),
+			__( 'Changeset %s', 'changesets' ),
 			gmdate( 'Y-m-d H:i' )
 		);
 	}
 
 	$changeset_id = wp_insert_post(
 		array(
-			'post_type'   => 'dcp_changeset',
+			'post_type'   => 'cs_changeset',
 			'post_status' => 'draft',
 			'post_title'  => $title,
 		),
@@ -101,8 +101,8 @@ function dcp_create_changeset( $title = null ) {
 	}
 
 	$uuid = wp_generate_uuid4();
-	update_post_meta( $changeset_id, '_dcp_changeset_uuid', $uuid );
-	update_post_meta( $changeset_id, '_dcp_changeset_status', 'open' );
+	update_post_meta( $changeset_id, '_changeset_changeset_uuid', $uuid );
+	update_post_meta( $changeset_id, '_changeset_changeset_status', 'open' );
 
 	return $changeset_id;
 }
@@ -115,14 +115,14 @@ function dcp_create_changeset( $title = null ) {
  * @param string $title        New title.
  * @return true|WP_Error
  */
-function dcp_update_changeset_title( $changeset_id, $title ) {
-	$changeset = dcp_get_changeset( $changeset_id );
+function cs_update_changeset_title( $changeset_id, $title ) {
+	$changeset = cs_get_changeset( $changeset_id );
 	if ( ! $changeset ) {
-		return new WP_Error( 'dcp_invalid_changeset', __( 'Invalid changeset.', 'draft-changes' ) );
+		return new WP_Error( 'cs_invalid_changeset', __( 'Invalid changeset.', 'changesets' ) );
 	}
 	$title = trim( (string) $title );
 	if ( '' === $title ) {
-		return new WP_Error( 'dcp_missing_title', __( 'Title is required.', 'draft-changes' ) );
+		return new WP_Error( 'cs_missing_title', __( 'Title is required.', 'changesets' ) );
 	}
 	$result = wp_update_post(
 		array(
@@ -143,10 +143,10 @@ function dcp_update_changeset_title( $changeset_id, $title ) {
  * @param int|string $changeset_id_or_uuid Changeset ID or UUID.
  * @return WP_Post|null
  */
-function dcp_get_changeset( $changeset_id_or_uuid ) {
+function cs_get_changeset( $changeset_id_or_uuid ) {
 	if ( is_numeric( $changeset_id_or_uuid ) ) {
 		$post = get_post( (int) $changeset_id_or_uuid );
-		if ( $post && 'dcp_changeset' === $post->post_type ) {
+		if ( $post && 'cs_changeset' === $post->post_type ) {
 			return $post;
 		}
 		return null;
@@ -154,12 +154,12 @@ function dcp_get_changeset( $changeset_id_or_uuid ) {
 
 	$changesets = get_posts(
 		array(
-			'post_type'      => 'dcp_changeset',
+			'post_type'      => 'cs_changeset',
 			'post_status'    => 'any',
 			'posts_per_page' => 1,
 			'meta_query'     => array(
 				array(
-					'key'   => '_dcp_changeset_uuid',
+					'key'   => '_changeset_changeset_uuid',
 					'value' => $changeset_id_or_uuid,
 				),
 			),
@@ -175,8 +175,8 @@ function dcp_get_changeset( $changeset_id_or_uuid ) {
  * @param int $changeset_id Changeset ID.
  * @return string
  */
-function dcp_get_changeset_uuid( $changeset_id ) {
-	return get_post_meta( (int) $changeset_id, '_dcp_changeset_uuid', true );
+function cs_get_changeset_uuid( $changeset_id ) {
+	return get_post_meta( (int) $changeset_id, '_changeset_changeset_uuid', true );
 }
 
 /**
@@ -185,8 +185,8 @@ function dcp_get_changeset_uuid( $changeset_id ) {
  * @param int $changeset_id Changeset ID.
  * @return string open|approved|published|discarded
  */
-function dcp_get_changeset_status( $changeset_id ) {
-	$status = get_post_meta( (int) $changeset_id, '_dcp_changeset_status', true );
+function cs_get_changeset_status( $changeset_id ) {
+	$status = get_post_meta( (int) $changeset_id, '_changeset_changeset_status', true );
 	return $status ? $status : 'open';
 }
 
@@ -196,8 +196,8 @@ function dcp_get_changeset_status( $changeset_id ) {
  * @param int $changeset_id Changeset ID.
  * @return bool
  */
-function dcp_is_changeset_approved( $changeset_id ) {
-	return 'approved' === dcp_get_changeset_status( $changeset_id );
+function cs_is_changeset_approved( $changeset_id ) {
+	return 'approved' === cs_get_changeset_status( $changeset_id );
 }
 
 /**
@@ -206,19 +206,19 @@ function dcp_is_changeset_approved( $changeset_id ) {
  * @param int $changeset_id Changeset ID.
  * @return true|WP_Error
  */
-function dcp_approve_changeset( $changeset_id ) {
-	$changeset = dcp_get_changeset( $changeset_id );
+function cs_approve_changeset( $changeset_id ) {
+	$changeset = cs_get_changeset( $changeset_id );
 	if ( ! $changeset ) {
-		return new WP_Error( 'dcp_not_changeset', __( 'Not a changeset.', 'draft-changes' ) );
+		return new WP_Error( 'cs_not_changeset', __( 'Not a changeset.', 'changesets' ) );
 	}
 
-	if ( ! dcp_user_can_approve_changeset( $changeset_id ) ) {
-		return new WP_Error( 'dcp_forbidden', __( 'You cannot approve this changeset.', 'draft-changes' ) );
+	if ( ! cs_user_can_approve_changeset( $changeset_id ) ) {
+		return new WP_Error( 'cs_forbidden', __( 'You cannot approve this changeset.', 'changesets' ) );
 	}
 
-	update_post_meta( $changeset_id, '_dcp_changeset_status', 'approved' );
-	update_post_meta( $changeset_id, '_dcp_approved_by', get_current_user_id() );
-	update_post_meta( $changeset_id, '_dcp_approved_at', gmdate( 'c' ) );
+	update_post_meta( $changeset_id, '_changeset_changeset_status', 'approved' );
+	update_post_meta( $changeset_id, '_changeset_approved_by', get_current_user_id() );
+	update_post_meta( $changeset_id, '_changeset_approved_at', gmdate( 'c' ) );
 	wp_update_post( array( 'ID' => $changeset_id, 'post_status' => 'pending' ) );
 
 	return true;
@@ -230,8 +230,8 @@ function dcp_approve_changeset( $changeset_id ) {
  * @param int $post_id Post ID.
  * @return bool
  */
-function dcp_is_staged( $post_id ) {
-	return (bool) get_post_meta( (int) $post_id, '_dcp_is_staged', true );
+function cs_is_staged( $post_id ) {
+	return (bool) get_post_meta( (int) $post_id, '_changeset_is_staged', true );
 }
 
 /**
@@ -240,8 +240,8 @@ function dcp_is_staged( $post_id ) {
  * @param int $staged_id Staged draft ID.
  * @return int Source post ID or 0.
  */
-function dcp_get_staged_source_id( $staged_id ) {
-	return (int) get_post_meta( (int) $staged_id, DCP_META_SOURCE, true );
+function cs_get_staged_source_id( $staged_id ) {
+	return (int) get_post_meta( (int) $staged_id, CS_META_SOURCE, true );
 }
 
 /**
@@ -250,8 +250,8 @@ function dcp_get_staged_source_id( $staged_id ) {
  * @param int $staged_id Staged draft ID.
  * @return int
  */
-function dcp_get_staged_changeset_id( $staged_id ) {
-	return (int) get_post_meta( (int) $staged_id, '_dcp_changeset_id', true );
+function cs_get_staged_changeset_id( $staged_id ) {
+	return (int) get_post_meta( (int) $staged_id, '_changeset_changeset_id', true );
 }
 
 /**
@@ -261,33 +261,33 @@ function dcp_get_staged_changeset_id( $staged_id ) {
  * @param int $source_id    Source post ID.
  * @return int|WP_Error Staged draft ID.
  */
-function dcp_stage_content( $changeset_id, $source_id ) {
+function cs_stage_content( $changeset_id, $source_id ) {
 	$changeset_id = (int) $changeset_id;
 	$source_id    = (int) $source_id;
 
-	$changeset = dcp_get_changeset( $changeset_id );
+	$changeset = cs_get_changeset( $changeset_id );
 	if ( ! $changeset ) {
-		return new WP_Error( 'dcp_invalid_changeset', __( 'Invalid changeset.', 'draft-changes' ) );
+		return new WP_Error( 'cs_invalid_changeset', __( 'Invalid changeset.', 'changesets' ) );
 	}
 
 	$source = get_post( $source_id );
 	if ( ! $source || 'publish' !== $source->post_status ) {
-		return new WP_Error( 'dcp_invalid_source', __( 'Source must be a published post or page.', 'draft-changes' ) );
+		return new WP_Error( 'cs_invalid_source', __( 'Source must be a published post or page.', 'changesets' ) );
 	}
 
 	if ( ! in_array( $source->post_type, array( 'post', 'page' ), true ) ) {
-		return new WP_Error( 'dcp_unsupported_type', __( 'Only posts and pages are supported in v1.', 'draft-changes' ) );
+		return new WP_Error( 'cs_unsupported_type', __( 'Only posts and pages are supported in v1.', 'changesets' ) );
 	}
 
-	if ( dcp_is_staged( $source_id ) ) {
-		return new WP_Error( 'dcp_source_is_staged', __( 'Cannot stage another staged draft.', 'draft-changes' ) );
+	if ( cs_is_staged( $source_id ) ) {
+		return new WP_Error( 'cs_source_is_staged', __( 'Cannot stage another staged draft.', 'changesets' ) );
 	}
 
-	$existing = dcp_get_staged_draft_for_source( $changeset_id, $source_id );
+	$existing = cs_get_staged_draft_for_source( $changeset_id, $source_id );
 	if ( $existing ) {
 		return new WP_Error(
-			'dcp_already_staged',
-			__( 'This content is already staged in this changeset.', 'draft-changes' ),
+			'cs_already_staged',
+			__( 'This content is already staged in this changeset.', 'changesets' ),
 			array( 'staged_id' => $existing )
 		);
 	}
@@ -311,9 +311,9 @@ function dcp_stage_content( $changeset_id, $source_id ) {
 		return $staged_id;
 	}
 
-	update_post_meta( $staged_id, '_dcp_is_staged', 1 );
-	update_post_meta( $staged_id, DCP_META_SOURCE, $source_id );
-	update_post_meta( $staged_id, '_dcp_changeset_id', $changeset_id );
+	update_post_meta( $staged_id, '_changeset_is_staged', 1 );
+	update_post_meta( $staged_id, CS_META_SOURCE, $source_id );
+	update_post_meta( $staged_id, '_changeset_changeset_id', $changeset_id );
 
 	$thumb = get_post_thumbnail_id( $source_id );
 	if ( $thumb ) {
@@ -341,8 +341,8 @@ function dcp_stage_content( $changeset_id, $source_id ) {
  * @param int $changeset_id Changeset ID.
  * @return array
  */
-function dcp_get_staged_options( $changeset_id ) {
-	$raw = get_post_meta( (int) $changeset_id, '_dcp_staged_options', true );
+function cs_get_staged_options( $changeset_id ) {
+	$raw = get_post_meta( (int) $changeset_id, '_changeset_staged_options', true );
 	return is_array( $raw ) ? $raw : array();
 }
 
@@ -356,15 +356,15 @@ function dcp_get_staged_options( $changeset_id ) {
  * @param mixed  $value        Option value.
  * @return true|WP_Error
  */
-function dcp_stage_option( $changeset_id, $key, $value ) {
-	$changeset = dcp_get_changeset( $changeset_id );
+function cs_stage_option( $changeset_id, $key, $value ) {
+	$changeset = cs_get_changeset( $changeset_id );
 	if ( ! $changeset ) {
-		return new WP_Error( 'dcp_invalid_changeset', __( 'Invalid changeset.', 'draft-changes' ) );
+		return new WP_Error( 'cs_invalid_changeset', __( 'Invalid changeset.', 'changesets' ) );
 	}
 
 	$allowed = array( 'show_on_front', 'page_on_front', 'page_for_posts', 'blogname', 'blogdescription' );
 	if ( ! in_array( $key, $allowed, true ) ) {
-		return new WP_Error( 'dcp_unsupported_option', __( 'That setting is not stageable yet.', 'draft-changes' ) );
+		return new WP_Error( 'cs_unsupported_option', __( 'That setting is not stageable yet.', 'changesets' ) );
 	}
 
 	if ( in_array( $key, array( 'page_on_front', 'page_for_posts' ), true ) ) {
@@ -373,9 +373,9 @@ function dcp_stage_option( $changeset_id, $key, $value ) {
 		$value = is_string( $value ) ? $value : (string) $value;
 	}
 
-	$bag         = dcp_get_staged_options( $changeset_id );
+	$bag         = cs_get_staged_options( $changeset_id );
 	$bag[ $key ] = $value;
-	update_post_meta( (int) $changeset_id, '_dcp_staged_options', $bag );
+	update_post_meta( (int) $changeset_id, '_changeset_staged_options', $bag );
 	return true;
 }
 
@@ -387,8 +387,8 @@ function dcp_stage_option( $changeset_id, $key, $value ) {
  * @param int $changeset_id Changeset ID.
  * @return array|null
  */
-function dcp_get_staged_global_styles( $changeset_id ) {
-	$raw = get_post_meta( (int) $changeset_id, '_dcp_staged_global_styles', true );
+function cs_get_staged_global_styles( $changeset_id ) {
+	$raw = get_post_meta( (int) $changeset_id, '_changeset_staged_global_styles', true );
 	if ( is_array( $raw ) ) {
 		return $raw;
 	}
@@ -406,19 +406,19 @@ function dcp_get_staged_global_styles( $changeset_id ) {
  * @param array $data         User theme.json-shaped data.
  * @return true|WP_Error
  */
-function dcp_set_staged_global_styles( $changeset_id, $data ) {
-	$changeset = dcp_get_changeset( $changeset_id );
+function cs_set_staged_global_styles( $changeset_id, $data ) {
+	$changeset = cs_get_changeset( $changeset_id );
 	if ( ! $changeset ) {
-		return new WP_Error( 'dcp_invalid_changeset', __( 'Invalid changeset.', 'draft-changes' ) );
+		return new WP_Error( 'cs_invalid_changeset', __( 'Invalid changeset.', 'changesets' ) );
 	}
 	if ( ! is_array( $data ) ) {
-		return new WP_Error( 'dcp_invalid_styles', __( 'Global styles must be an object.', 'draft-changes' ) );
+		return new WP_Error( 'cs_invalid_styles', __( 'Global styles must be an object.', 'changesets' ) );
 	}
 	$data['isGlobalStylesUserThemeJSON'] = true;
 	if ( empty( $data['version'] ) ) {
 		$data['version'] = 3;
 	}
-	update_post_meta( (int) $changeset_id, '_dcp_staged_global_styles', $data );
+	update_post_meta( (int) $changeset_id, '_changeset_staged_global_styles', $data );
 	return true;
 }
 
@@ -429,16 +429,16 @@ function dcp_set_staged_global_styles( $changeset_id, $data ) {
  * @param array $patch        Partial theme.json (settings/styles/etc).
  * @return array|WP_Error
  */
-function dcp_stage_global_styles( $changeset_id, $patch ) {
-	$changeset = dcp_get_changeset( $changeset_id );
+function cs_stage_global_styles( $changeset_id, $patch ) {
+	$changeset = cs_get_changeset( $changeset_id );
 	if ( ! $changeset ) {
-		return new WP_Error( 'dcp_invalid_changeset', __( 'Invalid changeset.', 'draft-changes' ) );
+		return new WP_Error( 'cs_invalid_changeset', __( 'Invalid changeset.', 'changesets' ) );
 	}
 	if ( ! is_array( $patch ) ) {
-		return new WP_Error( 'dcp_invalid_styles', __( 'Global styles patch must be an object.', 'draft-changes' ) );
+		return new WP_Error( 'cs_invalid_styles', __( 'Global styles patch must be an object.', 'changesets' ) );
 	}
 
-	$base = dcp_get_staged_global_styles( $changeset_id );
+	$base = cs_get_staged_global_styles( $changeset_id );
 	if ( ! $base ) {
 		$base = array(
 			'version'                       => 3,
@@ -467,7 +467,7 @@ function dcp_stage_global_styles( $changeset_id, $patch ) {
 		}
 	}
 
-	$result = dcp_set_staged_global_styles( $changeset_id, $base );
+	$result = cs_set_staged_global_styles( $changeset_id, $base );
 	if ( is_wp_error( $result ) ) {
 		return $result;
 	}
@@ -485,20 +485,20 @@ function dcp_stage_global_styles( $changeset_id, $patch ) {
  * @param string $variation File stem (e.g. 05-twilight) or title (e.g. Twilight).
  * @return array|WP_Error { stem, title, data }
  */
-function dcp_resolve_style_variation( $variation ) {
+function cs_resolve_style_variation( $variation ) {
 	$variation = trim( (string) $variation );
 	if ( '' === $variation ) {
-		return new WP_Error( 'dcp_missing_variation', __( 'Style variation is required.', 'draft-changes' ) );
+		return new WP_Error( 'cs_missing_variation', __( 'Style variation is required.', 'changesets' ) );
 	}
 
 	$dir = trailingslashit( get_stylesheet_directory() ) . 'styles/';
 	if ( ! is_dir( $dir ) ) {
-		return new WP_Error( 'dcp_no_variations', __( 'This theme has no style variations.', 'draft-changes' ) );
+		return new WP_Error( 'cs_no_variations', __( 'This theme has no style variations.', 'changesets' ) );
 	}
 
 	$files = glob( $dir . '*.json' );
 	if ( ! $files ) {
-		return new WP_Error( 'dcp_no_variations', __( 'This theme has no style variations.', 'draft-changes' ) );
+		return new WP_Error( 'cs_no_variations', __( 'This theme has no style variations.', 'changesets' ) );
 	}
 
 	foreach ( $files as $file ) {
@@ -519,7 +519,7 @@ function dcp_resolve_style_variation( $variation ) {
 		}
 	}
 
-	return new WP_Error( 'dcp_unknown_variation', __( 'Style variation not found.', 'draft-changes' ) );
+	return new WP_Error( 'cs_unknown_variation', __( 'Style variation not found.', 'changesets' ) );
 }
 
 /**
@@ -529,24 +529,24 @@ function dcp_resolve_style_variation( $variation ) {
  * @param string $variation    File stem or title.
  * @return array|WP_Error
  */
-function dcp_stage_style_variation( $changeset_id, $variation ) {
-	$changeset = dcp_get_changeset( $changeset_id );
+function cs_stage_style_variation( $changeset_id, $variation ) {
+	$changeset = cs_get_changeset( $changeset_id );
 	if ( ! $changeset ) {
-		return new WP_Error( 'dcp_invalid_changeset', __( 'Invalid changeset.', 'draft-changes' ) );
+		return new WP_Error( 'cs_invalid_changeset', __( 'Invalid changeset.', 'changesets' ) );
 	}
 
-	$resolved = dcp_resolve_style_variation( $variation );
+	$resolved = cs_resolve_style_variation( $variation );
 	if ( is_wp_error( $resolved ) ) {
 		return $resolved;
 	}
 
-	$result = dcp_set_staged_global_styles( $changeset_id, $resolved['data'] );
+	$result = cs_set_staged_global_styles( $changeset_id, $resolved['data'] );
 	if ( is_wp_error( $result ) ) {
 		return $result;
 	}
 
-	update_post_meta( (int) $changeset_id, '_dcp_staged_style_variation', $resolved['stem'] );
-	update_post_meta( (int) $changeset_id, '_dcp_staged_style_variation_title', $resolved['title'] );
+	update_post_meta( (int) $changeset_id, '_changeset_staged_style_variation', $resolved['stem'] );
+	update_post_meta( (int) $changeset_id, '_changeset_staged_style_variation_title', $resolved['title'] );
 
 	return array(
 		'changeset_id' => (int) $changeset_id,
@@ -562,8 +562,8 @@ function dcp_stage_style_variation( $changeset_id, $variation ) {
  * @param int $changeset_id Changeset ID.
  * @return string
  */
-function dcp_get_staged_style_variation( $changeset_id ) {
-	return (string) get_post_meta( (int) $changeset_id, '_dcp_staged_style_variation', true );
+function cs_get_staged_style_variation( $changeset_id ) {
+	return (string) get_post_meta( (int) $changeset_id, '_changeset_staged_style_variation', true );
 }
 
 /**
@@ -575,16 +575,16 @@ function dcp_get_staged_style_variation( $changeset_id ) {
  * @param string $slug         Optional slug.
  * @return int|WP_Error Staged page ID.
  */
-function dcp_create_staged_page( $changeset_id, $title, $content = '', $slug = '' ) {
+function cs_create_staged_page( $changeset_id, $title, $content = '', $slug = '' ) {
 	$changeset_id = (int) $changeset_id;
 
-	$changeset = dcp_get_changeset( $changeset_id );
+	$changeset = cs_get_changeset( $changeset_id );
 	if ( ! $changeset ) {
-		return new WP_Error( 'dcp_invalid_changeset', __( 'Invalid changeset.', 'draft-changes' ) );
+		return new WP_Error( 'cs_invalid_changeset', __( 'Invalid changeset.', 'changesets' ) );
 	}
 
 	if ( '' === trim( (string) $title ) ) {
-		return new WP_Error( 'dcp_missing_title', __( 'Title is required.', 'draft-changes' ) );
+		return new WP_Error( 'cs_missing_title', __( 'Title is required.', 'changesets' ) );
 	}
 
 	$slug = $slug ? sanitize_title( $slug ) : sanitize_title( $title );
@@ -605,9 +605,9 @@ function dcp_create_staged_page( $changeset_id, $title, $content = '', $slug = '
 		return $staged_id;
 	}
 
-	update_post_meta( $staged_id, '_dcp_is_staged', 1 );
-	update_post_meta( $staged_id, '_dcp_changeset_id', $changeset_id );
-	update_post_meta( $staged_id, DCP_META_SOURCE, 0 );
+	update_post_meta( $staged_id, '_changeset_is_staged', 1 );
+	update_post_meta( $staged_id, '_changeset_changeset_id', $changeset_id );
+	update_post_meta( $staged_id, CS_META_SOURCE, 0 );
 
 	return $staged_id;
 }
@@ -619,25 +619,25 @@ function dcp_create_staged_page( $changeset_id, $title, $content = '', $slug = '
  * @param int $source_id    Source post ID.
  * @return int Staged draft ID or 0.
  */
-function dcp_get_staged_draft_for_source( $changeset_id, $source_id ) {
+function cs_get_staged_draft_for_source( $changeset_id, $source_id ) {
 	$staged = get_posts(
 		array(
 			'post_type'      => array( 'post', 'page' ),
 			'post_status'    => 'draft',
 			'posts_per_page' => 1,
-			'dcp_internal'   => true,
+			'cs_internal'   => true,
 			'suppress_filters' => true,
 			'meta_query'     => array(
 				array(
-					'key'   => '_dcp_changeset_id',
+					'key'   => '_changeset_changeset_id',
 					'value' => (int) $changeset_id,
 				),
 				array(
-					'key'   => DCP_META_SOURCE,
+					'key'   => CS_META_SOURCE,
 					'value' => (int) $source_id,
 				),
 				array(
-					'key'   => '_dcp_is_staged',
+					'key'   => '_changeset_is_staged',
 					'value' => '1',
 				),
 			),
@@ -654,7 +654,7 @@ function dcp_get_staged_draft_for_source( $changeset_id, $source_id ) {
  * @param int $changeset_id Changeset ID.
  * @return array Array of staged draft IDs.
  */
-function dcp_get_staged_drafts( $changeset_id ) {
+function cs_get_staged_drafts( $changeset_id ) {
 	return get_posts(
 		array(
 			'post_type'      => array( 'post', 'page' ),
@@ -662,11 +662,11 @@ function dcp_get_staged_drafts( $changeset_id ) {
 			'posts_per_page' => -1,
 			'meta_query'     => array(
 				array(
-					'key'   => '_dcp_changeset_id',
+					'key'   => '_changeset_changeset_id',
 					'value' => (int) $changeset_id,
 				),
 				array(
-					'key'   => '_dcp_is_staged',
+					'key'   => '_changeset_is_staged',
 					'value' => '1',
 				),
 			),
@@ -682,10 +682,10 @@ function dcp_get_staged_drafts( $changeset_id ) {
  * @param array $fields    Keys: title, content, excerpt.
  * @return true|WP_Error
  */
-function dcp_update_staged_content( $staged_id, $fields ) {
+function cs_update_staged_content( $staged_id, $fields ) {
 	$staged_id = (int) $staged_id;
-	if ( ! dcp_is_staged( $staged_id ) ) {
-		return new WP_Error( 'dcp_not_staged', __( 'Not a staged draft.', 'draft-changes' ) );
+	if ( ! cs_is_staged( $staged_id ) ) {
+		return new WP_Error( 'cs_not_staged', __( 'Not a staged draft.', 'changesets' ) );
 	}
 
 	$update = array( 'ID' => $staged_id );
@@ -700,7 +700,7 @@ function dcp_update_staged_content( $staged_id, $fields ) {
 	}
 
 	if ( count( $update ) === 1 ) {
-		return new WP_Error( 'dcp_no_fields', __( 'No fields to update.', 'draft-changes' ) );
+		return new WP_Error( 'cs_no_fields', __( 'No fields to update.', 'changesets' ) );
 	}
 
 	$result = wp_update_post( $update, true );
@@ -717,22 +717,22 @@ function dcp_update_staged_content( $staged_id, $fields ) {
  * @param int $changeset_id Changeset ID.
  * @return array|WP_Error { applied_count, source_ids }
  */
-function dcp_publish_changeset( $changeset_id ) {
+function cs_publish_changeset( $changeset_id ) {
 	$changeset_id = (int) $changeset_id;
-	$changeset    = dcp_get_changeset( $changeset_id );
+	$changeset    = cs_get_changeset( $changeset_id );
 
 	if ( ! $changeset ) {
-		return new WP_Error( 'dcp_not_changeset', __( 'Not a changeset.', 'draft-changes' ) );
+		return new WP_Error( 'cs_not_changeset', __( 'Not a changeset.', 'changesets' ) );
 	}
 
-	$staged_ids      = dcp_get_staged_drafts( $changeset_id );
+	$staged_ids      = cs_get_staged_drafts( $changeset_id );
 	$applied         = 0;
 	$published_new   = 0;
 	$source_ids      = array();
 
 	foreach ( $staged_ids as $staged_id ) {
 		$staged    = get_post( $staged_id );
-		$source_id = dcp_get_staged_source_id( $staged_id );
+		$source_id = cs_get_staged_source_id( $staged_id );
 
 		if ( ! $staged ) {
 			continue;
@@ -785,27 +785,27 @@ function dcp_publish_changeset( $changeset_id ) {
 				),
 				true
 			);
-			delete_post_meta( $staged_id, '_dcp_is_staged' );
-			delete_post_meta( $staged_id, '_dcp_changeset_id' );
-			delete_post_meta( $staged_id, DCP_META_SOURCE );
+			delete_post_meta( $staged_id, '_changeset_is_staged' );
+			delete_post_meta( $staged_id, '_changeset_changeset_id' );
+			delete_post_meta( $staged_id, CS_META_SOURCE );
 			$source_ids[] = $staged_id;
 			$published_new++;
 		}
 	}
 
-	$options = dcp_get_staged_options( $changeset_id );
+	$options = cs_get_staged_options( $changeset_id );
 	foreach ( $options as $key => $value ) {
 		update_option( $key, $value );
 	}
 	if ( $options ) {
-		delete_post_meta( $changeset_id, '_dcp_staged_options' );
+		delete_post_meta( $changeset_id, '_changeset_staged_options' );
 	}
 
-	$staged_styles = dcp_get_staged_global_styles( $changeset_id );
+	$staged_styles = cs_get_staged_global_styles( $changeset_id );
 	if ( ! $staged_styles ) {
-		$variation_stem = dcp_get_staged_style_variation( $changeset_id );
+		$variation_stem = cs_get_staged_style_variation( $changeset_id );
 		if ( $variation_stem ) {
-			$resolved = dcp_resolve_style_variation( $variation_stem );
+			$resolved = cs_resolve_style_variation( $variation_stem );
 			if ( ! is_wp_error( $resolved ) ) {
 				$staged_styles = $resolved['data'];
 			}
@@ -828,16 +828,16 @@ function dcp_publish_changeset( $changeset_id ) {
 				true
 			);
 		}
-		delete_post_meta( $changeset_id, '_dcp_staged_global_styles' );
-		delete_post_meta( $changeset_id, '_dcp_staged_style_variation' );
-		delete_post_meta( $changeset_id, '_dcp_staged_style_variation_title' );
+		delete_post_meta( $changeset_id, '_changeset_staged_global_styles' );
+		delete_post_meta( $changeset_id, '_changeset_staged_style_variation' );
+		delete_post_meta( $changeset_id, '_changeset_staged_style_variation_title' );
 	}
 
-	update_post_meta( $changeset_id, '_dcp_changeset_status', 'published' );
-	update_post_meta( $changeset_id, '_dcp_published_at', gmdate( 'c' ) );
-	update_post_meta( $changeset_id, '_dcp_published_by', get_current_user_id() );
+	update_post_meta( $changeset_id, '_changeset_changeset_status', 'published' );
+	update_post_meta( $changeset_id, '_changeset_published_at', gmdate( 'c' ) );
+	update_post_meta( $changeset_id, '_changeset_published_by', get_current_user_id() );
 
-	dcp_clear_preview_cookie();
+	cs_clear_preview_cookie();
 
 	return array(
 		'changeset_id'        => $changeset_id,
@@ -854,20 +854,20 @@ function dcp_publish_changeset( $changeset_id ) {
  * @param array $args Optional. status, per_page, page.
  * @return array { items, total }
  */
-function dcp_list_changesets( $args = array() ) {
+function cs_list_changesets( $args = array() ) {
 	$meta_status = array( 'open', 'approved' );
 	if ( isset( $args['status'] ) ) {
 		$meta_status = (array) $args['status'];
 	}
 
 	$query_args = array(
-		'post_type'      => 'dcp_changeset',
+		'post_type'      => 'cs_changeset',
 		'post_status'    => 'any',
 		'posts_per_page' => isset( $args['per_page'] ) ? (int) $args['per_page'] : 20,
 		'paged'          => isset( $args['page'] ) ? (int) $args['page'] : 1,
 		'meta_query'     => array(
 			array(
-				'key'     => '_dcp_changeset_status',
+				'key'     => '_changeset_changeset_status',
 				'value'   => $meta_status,
 				'compare' => 'IN',
 			),
@@ -879,9 +879,9 @@ function dcp_list_changesets( $args = array() ) {
 	$q = new WP_Query( $query_args );
 	$items = array();
 	foreach ( $q->posts as $post ) {
-		$uuid         = dcp_get_changeset_uuid( $post->ID );
-		$status       = dcp_get_changeset_status( $post->ID );
-		$staged_count = count( dcp_get_staged_drafts( $post->ID ) );
+		$uuid         = cs_get_changeset_uuid( $post->ID );
+		$status       = cs_get_changeset_status( $post->ID );
+		$staged_count = count( cs_get_staged_drafts( $post->ID ) );
 
 		$items[] = array(
 			'changeset_id' => (int) $post->ID,
@@ -906,24 +906,24 @@ function dcp_list_changesets( $args = array() ) {
  * @param string  $old_status Old status.
  * @param WP_Post $post       Post object.
  */
-function dcp_prevent_staged_publish( $new_status, $old_status, $post ) {
+function cs_prevent_staged_publish( $new_status, $old_status, $post ) {
 	if ( 'publish' !== $new_status || 'publish' === $old_status ) {
 		return;
 	}
-	if ( ! dcp_is_staged( $post->ID ) ) {
+	if ( ! cs_is_staged( $post->ID ) ) {
 		return;
 	}
 
-	remove_action( 'transition_post_status', 'dcp_prevent_staged_publish', 10 );
+	remove_action( 'transition_post_status', 'cs_prevent_staged_publish', 10 );
 	wp_update_post(
 		array(
 			'ID'          => $post->ID,
 			'post_status' => 'draft',
 		)
 	);
-	add_action( 'transition_post_status', 'dcp_prevent_staged_publish', 10, 3 );
+	add_action( 'transition_post_status', 'cs_prevent_staged_publish', 10, 3 );
 }
-add_action( 'transition_post_status', 'dcp_prevent_staged_publish', 10, 3 );
+add_action( 'transition_post_status', 'cs_prevent_staged_publish', 10, 3 );
 
 /**
  * Get preview URL for a changeset.
@@ -931,8 +931,8 @@ add_action( 'transition_post_status', 'dcp_prevent_staged_publish', 10, 3 );
  * @param int $changeset_id Changeset ID.
  * @return string
  */
-function dcp_get_preview_url( $changeset_id ) {
-	$uuid = dcp_get_changeset_uuid( $changeset_id );
+function cs_get_preview_url( $changeset_id ) {
+	$uuid = cs_get_changeset_uuid( $changeset_id );
 	return add_query_arg( 'changeset', $uuid, home_url( '/' ) );
 }
 
@@ -944,7 +944,7 @@ function dcp_get_preview_url( $changeset_id ) {
  *
  * @param string $uuid Changeset UUID.
  */
-function dcp_set_preview_cookie( $uuid ) {
+function cs_set_preview_cookie( $uuid ) {
 	if ( headers_sent() ) {
 		return;
 	}
@@ -957,7 +957,7 @@ function dcp_set_preview_cookie( $uuid ) {
  *
  * Expires the cookie by setting it to empty with a past timestamp.
  */
-function dcp_clear_preview_cookie() {
+function cs_clear_preview_cookie() {
 	unset( $_COOKIE['changeset'] );
 	if ( headers_sent() ) {
 		return;
@@ -970,7 +970,7 @@ function dcp_clear_preview_cookie() {
  *
  * @return string|null
  */
-function dcp_get_active_preview_uuid() {
+function cs_get_active_preview_uuid() {
 	if ( isset( $_GET['changeset'] ) && $_GET['changeset'] ) {
 		return sanitize_text_field( wp_unslash( $_GET['changeset'] ) );
 	}
@@ -983,30 +983,30 @@ function dcp_get_active_preview_uuid() {
 /**
  * Initialize preview mode: set cookie from query param.
  */
-function dcp_init_preview() {
+function cs_init_preview() {
 	// Exit first — clear cookie even if UUID only lived in the cookie.
-	if ( isset( $_GET['dcp_exit_preview'] ) ) {
-		dcp_clear_preview_cookie();
-		wp_safe_redirect( remove_query_arg( array( 'dcp_exit_preview', 'changeset' ) ) );
+	if ( isset( $_GET['cs_exit_preview'] ) ) {
+		cs_clear_preview_cookie();
+		wp_safe_redirect( remove_query_arg( array( 'cs_exit_preview', 'changeset' ) ) );
 		exit;
 	}
 
-	$uuid = dcp_get_active_preview_uuid();
+	$uuid = cs_get_active_preview_uuid();
 	if ( ! $uuid ) {
 		return;
 	}
 
-	$changeset = dcp_get_changeset( $uuid );
+	$changeset = cs_get_changeset( $uuid );
 	if ( ! $changeset ) {
-		dcp_clear_preview_cookie();
+		cs_clear_preview_cookie();
 		return;
 	}
 
 	if ( isset( $_GET['changeset'] ) ) {
-		dcp_set_preview_cookie( $uuid );
+		cs_set_preview_cookie( $uuid );
 	}
 }
-add_action( 'init', 'dcp_init_preview' );
+add_action( 'init', 'cs_init_preview' );
 
 
 
@@ -1017,7 +1017,7 @@ add_action( 'init', 'dcp_init_preview' );
  *
  * @return array{changeset_id:int, map:array<int,int>, new_ids:array<int>}|null
  */
-function dcp_preview_staged_index() {
+function cs_preview_staged_index() {
 	static $index = null;
 	static $loaded = false;
 
@@ -1026,12 +1026,12 @@ function dcp_preview_staged_index() {
 	}
 	$loaded = true;
 
-	$uuid = dcp_get_active_preview_uuid();
+	$uuid = cs_get_active_preview_uuid();
 	if ( ! $uuid ) {
 		return null;
 	}
 
-	$changeset = dcp_get_changeset( $uuid );
+	$changeset = cs_get_changeset( $uuid );
 	if ( ! $changeset ) {
 		return null;
 	}
@@ -1043,22 +1043,22 @@ function dcp_preview_staged_index() {
 			FROM {$wpdb->posts} p
 			INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
 			WHERE p.post_status = 'draft'
-			AND pm.meta_key IN ('_dcp_is_staged', '_dcp_changeset_id', %s)
+			AND pm.meta_key IN ('_changeset_is_staged', '_changeset_changeset_id', %s)
 			AND EXISTS (
 				SELECT 1 FROM {$wpdb->postmeta} pm2
 				WHERE pm2.post_id = p.ID
-				AND pm2.meta_key = '_dcp_is_staged'
+				AND pm2.meta_key = '_changeset_is_staged'
 				AND pm2.meta_value = '1'
 			)
 			AND EXISTS (
 				SELECT 1 FROM {$wpdb->postmeta} pm3
 				WHERE pm3.post_id = p.ID
-				AND pm3.meta_key = '_dcp_changeset_id'
+				AND pm3.meta_key = '_changeset_changeset_id'
 				AND pm3.meta_value = %d
 			)
 			GROUP BY p.ID",
-			DCP_META_SOURCE,
-			DCP_META_SOURCE,
+			CS_META_SOURCE,
+			CS_META_SOURCE,
 			$changeset->ID
 		)
 	);
@@ -1092,8 +1092,8 @@ function dcp_preview_staged_index() {
  * @param WP_Query $query Query.
  * @return array
  */
-function dcp_overlay_staged_content( $posts, $query ) {
-	$index = dcp_preview_staged_index();
+function cs_overlay_staged_content( $posts, $query ) {
+	$index = cs_preview_staged_index();
 	if ( ! $index || ! $posts ) {
 		return $posts;
 	}
@@ -1146,18 +1146,18 @@ function dcp_overlay_staged_content( $posts, $query ) {
 /**
  * @param WP_Query $query Query.
  */
-function dcp_preview_filter_posts( $query ) {
+function cs_preview_filter_posts( $query ) {
 	static $added = false;
-	if ( $added || ! dcp_get_active_preview_uuid() ) {
+	if ( $added || ! cs_get_active_preview_uuid() ) {
 		return;
 	}
 	if ( is_admin() && ! ( defined( 'DOING_AJAX' ) && DOING_AJAX ) ) {
 		return;
 	}
 	$added = true;
-	add_filter( 'posts_results', 'dcp_overlay_staged_content', 10, 2 );
+	add_filter( 'posts_results', 'cs_overlay_staged_content', 10, 2 );
 }
-add_action( 'pre_get_posts', 'dcp_preview_filter_posts' );
+add_action( 'pre_get_posts', 'cs_preview_filter_posts' );
 
 /**
  * Overlay staged options during preview.
@@ -1166,22 +1166,22 @@ add_action( 'pre_get_posts', 'dcp_preview_filter_posts' );
  * @param string $option Option name.
  * @return mixed
  */
-function dcp_preview_filter_option( $pre, $option ) {
-	$index = dcp_preview_staged_index();
+function cs_preview_filter_option( $pre, $option ) {
+	$index = cs_preview_staged_index();
 	if ( ! $index ) {
 		return $pre;
 	}
-	$bag = dcp_get_staged_options( $index['changeset_id'] );
+	$bag = cs_get_staged_options( $index['changeset_id'] );
 	if ( array_key_exists( $option, $bag ) ) {
 		return $bag[ $option ];
 	}
 	return $pre;
 }
-add_filter( 'pre_option_show_on_front', 'dcp_preview_filter_option', 10, 2 );
-add_filter( 'pre_option_page_on_front', 'dcp_preview_filter_option', 10, 2 );
-add_filter( 'pre_option_page_for_posts', 'dcp_preview_filter_option', 10, 2 );
-add_filter( 'pre_option_blogname', 'dcp_preview_filter_option', 10, 2 );
-add_filter( 'pre_option_blogdescription', 'dcp_preview_filter_option', 10, 2 );
+add_filter( 'pre_option_show_on_front', 'cs_preview_filter_option', 10, 2 );
+add_filter( 'pre_option_page_on_front', 'cs_preview_filter_option', 10, 2 );
+add_filter( 'pre_option_page_for_posts', 'cs_preview_filter_option', 10, 2 );
+add_filter( 'pre_option_blogname', 'cs_preview_filter_option', 10, 2 );
+add_filter( 'pre_option_blogdescription', 'cs_preview_filter_option', 10, 2 );
 
 /**
  * Overlay staged style variation onto user theme.json during preview.
@@ -1189,24 +1189,24 @@ add_filter( 'pre_option_blogdescription', 'dcp_preview_filter_option', 10, 2 );
  * @param WP_Theme_JSON_Data $theme_json Theme JSON data object.
  * @return WP_Theme_JSON_Data
  */
-function dcp_preview_global_styles( $theme_json ) {
-	$uuid = dcp_get_active_preview_uuid();
+function cs_preview_global_styles( $theme_json ) {
+	$uuid = cs_get_active_preview_uuid();
 	if ( ! $uuid ) {
 		return $theme_json;
 	}
-	$changeset = dcp_get_changeset( $uuid );
+	$changeset = cs_get_changeset( $uuid );
 	if ( ! $changeset || ! class_exists( 'WP_Theme_JSON_Data' ) ) {
 		return $theme_json;
 	}
 
-	$payload = dcp_get_staged_global_styles( $changeset->ID );
+	$payload = cs_get_staged_global_styles( $changeset->ID );
 	if ( ! $payload ) {
 		// Back-compat: variation stem only.
-		$stem = dcp_get_staged_style_variation( $changeset->ID );
+		$stem = cs_get_staged_style_variation( $changeset->ID );
 		if ( ! $stem ) {
 			return $theme_json;
 		}
-		$resolved = dcp_resolve_style_variation( $stem );
+		$resolved = cs_resolve_style_variation( $stem );
 		if ( is_wp_error( $resolved ) ) {
 			return $theme_json;
 		}
@@ -1219,7 +1219,7 @@ function dcp_preview_global_styles( $theme_json ) {
 	}
 	return new WP_Theme_JSON_Data( $payload, 'custom' );
 }
-add_filter( 'wp_theme_json_data_user', 'dcp_preview_global_styles' );
+add_filter( 'wp_theme_json_data_user', 'cs_preview_global_styles' );
 
 
 
@@ -1232,8 +1232,8 @@ add_filter( 'wp_theme_json_data_user', 'dcp_preview_global_styles' );
  * @param array $args  Args.
  * @return array
  */
-function dcp_preview_filter_get_pages( $pages, $args ) {
-	$index = dcp_preview_staged_index();
+function cs_preview_filter_get_pages( $pages, $args ) {
+	$index = cs_preview_staged_index();
 	if ( ! $index || empty( $index['new_ids'] ) ) {
 		return $pages;
 	}
@@ -1256,7 +1256,7 @@ function dcp_preview_filter_get_pages( $pages, $args ) {
 	}
 	return $pages;
 }
-add_filter( 'get_pages', 'dcp_preview_filter_get_pages', 10, 2 );
+add_filter( 'get_pages', 'cs_preview_filter_get_pages', 10, 2 );
 
 /**
  * Resolve /slug/ to a source-less staged page while previewing.
@@ -1264,11 +1264,11 @@ add_filter( 'get_pages', 'dcp_preview_filter_get_pages', 10, 2 );
  * @param array $query_vars Query vars.
  * @return array
  */
-function dcp_preview_resolve_new_page( $query_vars ) {
+function cs_preview_resolve_new_page( $query_vars ) {
 	if ( empty( $query_vars['pagename'] ) ) {
 		return $query_vars;
 	}
-	$index = dcp_preview_staged_index();
+	$index = cs_preview_staged_index();
 	if ( ! $index || empty( $index['new_ids'] ) ) {
 		return $query_vars;
 	}
@@ -1284,34 +1284,34 @@ function dcp_preview_resolve_new_page( $query_vars ) {
 	}
 	return $query_vars;
 }
-add_filter( 'request', 'dcp_preview_resolve_new_page' );
+add_filter( 'request', 'cs_preview_resolve_new_page' );
 
 /**
  * Allow main query to load draft staged pages when preview resolves page_id to one.
  *
  * @param WP_Query $query Query.
  */
-function dcp_preview_allow_staged_status( $query ) {
-	if ( ! $query->is_main_query() || ! dcp_get_active_preview_uuid() ) {
+function cs_preview_allow_staged_status( $query ) {
+	if ( ! $query->is_main_query() || ! cs_get_active_preview_uuid() ) {
 		return;
 	}
 	$page_id = (int) $query->get( 'page_id' );
 	if ( ! $page_id ) {
 		return;
 	}
-	$index = dcp_preview_staged_index();
+	$index = cs_preview_staged_index();
 	if ( $index && in_array( $page_id, $index['new_ids'], true ) ) {
 		$query->set( 'post_status', array( 'publish', 'draft' ) );
 	}
 }
-add_action( 'pre_get_posts', 'dcp_preview_allow_staged_status', 20 );
+add_action( 'pre_get_posts', 'cs_preview_allow_staged_status', 20 );
 
 /**
  * Hide staged drafts from the default Pages / Posts admin lists.
  *
  * @param WP_Query $query Query.
  */
-function dcp_hide_staged_from_admin_lists( $query ) {
+function cs_hide_staged_from_admin_lists( $query ) {
 	if ( ! is_admin() || ! $query->is_main_query() ) {
 		return;
 	}
@@ -1326,18 +1326,18 @@ function dcp_hide_staged_from_admin_lists( $query ) {
 	$meta_query[] = array(
 		'relation' => 'OR',
 		array(
-			'key'     => '_dcp_is_staged',
+			'key'     => '_changeset_is_staged',
 			'compare' => 'NOT EXISTS',
 		),
 		array(
-			'key'     => '_dcp_is_staged',
+			'key'     => '_changeset_is_staged',
 			'value'   => '1',
 			'compare' => '!=',
 		),
 	);
 	$query->set( 'meta_query', $meta_query );
 }
-add_action( 'pre_get_posts', 'dcp_hide_staged_from_admin_lists' );
+add_action( 'pre_get_posts', 'cs_hide_staged_from_admin_lists' );
 
 /**
  * When a changeset is deleted, hard-delete its staged drafts.
@@ -1345,15 +1345,15 @@ add_action( 'pre_get_posts', 'dcp_hide_staged_from_admin_lists' );
  * @param int     $post_id Post ID.
  * @param WP_Post $post    Post.
  */
-function dcp_delete_changeset_staged( $post_id, $post ) {
-	if ( ! $post || 'dcp_changeset' !== $post->post_type ) {
+function cs_delete_changeset_staged( $post_id, $post ) {
+	if ( ! $post || 'cs_changeset' !== $post->post_type ) {
 		return;
 	}
-	foreach ( dcp_get_staged_drafts( $post_id ) as $staged_id ) {
+	foreach ( cs_get_staged_drafts( $post_id ) as $staged_id ) {
 		wp_delete_post( $staged_id, true );
 	}
 }
-add_action( 'before_delete_post', 'dcp_delete_changeset_staged', 10, 2 );
+add_action( 'before_delete_post', 'cs_delete_changeset_staged', 10, 2 );
 
 /**
  * Whether the current user can approve a changeset.
@@ -1361,7 +1361,7 @@ add_action( 'before_delete_post', 'dcp_delete_changeset_staged', 10, 2 );
  * @param int $changeset_id Changeset ID.
  * @return bool
  */
-function dcp_user_can_approve_changeset( $changeset_id ) {
+function cs_user_can_approve_changeset( $changeset_id ) {
 	return current_user_can( 'approve_changesets' ) || current_user_can( 'publish_posts' ) || current_user_can( 'publish_pages' );
 }
 
@@ -1371,6 +1371,6 @@ function dcp_user_can_approve_changeset( $changeset_id ) {
  * @param int $changeset_id Changeset ID.
  * @return bool
  */
-function dcp_user_can_publish_changeset( $changeset_id ) {
+function cs_user_can_publish_changeset( $changeset_id ) {
 	return current_user_can( 'publish_changesets' ) || current_user_can( 'publish_posts' ) || current_user_can( 'publish_pages' );
 }

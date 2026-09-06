@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Ensure custom caps exist on Administrator and Editor (safe to call often).
  */
-function dcp_register_caps() {
+function cs_register_caps() {
 	foreach ( array( 'administrator', 'editor' ) as $role_name ) {
 		$role = get_role( $role_name );
 		if ( ! $role ) {
