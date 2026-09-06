@@ -3,7 +3,7 @@ Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.2.19
+Stable tag: 0.2.20
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,9 @@ Repo/docs if you need them: https://github.com/richtabor/draft-changes
 4. Use a propose-only Application Password user without `publish_posts` / `edit_published_posts`.
 
 == Changelog ==
+
+= 0.2.20 =
+* Breaking: Remove legacy `dcp_changeset` query parameter and cookie support (no longer accepted).
 
 = 0.2.19 =
 * Change: Rename preview query parameter from `dcp_changeset` to `changeset` (backward compatible).
