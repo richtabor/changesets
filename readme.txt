@@ -21,49 +21,15 @@ Exposes Abilities (`draft-changes/create-changeset`, `stage-content`, `stage-glo
 
 Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent access.
 
-== Try It Now ==
-
-**One-Click Playground Demo**:
-https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/richtabor/draft-changes/main/blueprint.json
-
-**Human Preview Path**: Open the blueprint, go to the Changesets admin list, click the demo changeset "Home Copy Update", then click Preview Changeset to see staged changes overlaid on the live site. The admin bar shows Exit Changeset. Exit returns you to the live site — staged changes haven't touched production. The live site stays frozen until you Publish Changeset.
-
-**Agent Workflow Notes**: Changesets list → Preview; Exit; live untouched; Approve/Publish are abilities not admin buttons.
-
-== Agent Prompt ==
-
-Paste this prompt to your AI agent to try Draft Changes on WordPress Playground with no hosting or Application Password:
-
-```
-You are helping me try Draft Changes, an experimental WordPress plugin for agentic staging (changesets): stage edits without touching live, preview on the real site, then approve + publish.
-
-Goal: spin up a disposable WordPress Playground site, make real staged changes with the plugin, give me a preview link, wait for my approval, then publish. Nothing permanent. No Application Password. No hosted site.
-
-Setup:
-1. Connect the WordPress Playground MCP bridge if you don't already have it: run `npx -y @wp-playground/mcp` (stdio MCP). Give me the Playground URL that includes the mcp-port so I can keep the tab open if needed.
-2. Open this blueprint (Draft Changes + MCP Adapter + a seeded demo changeset):
-   https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/richtabor/draft-changes/main/blueprint.json
-
-How to work:
-- Do not edit published pages/options directly. Use Draft Changes abilities (discoverable via the Abilities API).
-- Preview URLs include a `?changeset=<UUID>` query parameter (from get-changeset / create-changeset).
-- Approve and publish are abilities — there are no admin Approve/Publish buttons. Call approve-changeset only after I say the preview looks good; then publish-changeset.
-
-Do this now:
-1. Open the blueprint and confirm Draft Changes abilities are available.
-2. Either use the seeded demo changeset or create a new one and make a small visible edit (e.g. Home copy tweak and/or a new Contact page).
-3. Send me the preview URL and a one-line summary of what's staged. Stop and wait.
-4. When I say "approve", approve then publish, then tell me to refresh the live homepage without the query param to verify.
-
-Repo/docs if you need them: https://github.com/richtabor/draft-changes
-```
-
 == Installation ==
 
-1. Install on WordPress 6.9+.
+1. Install Draft Changes on WordPress 6.9+.
 2. Activate Draft Changes.
-3. (Optional) Install MCP Adapter for agent transport.
-4. Use a propose-only Application Password user without `publish_posts` / `edit_published_posts`.
+3. Install MCP Adapter plugin for agent transport.
+4. Configure Application Password for HTTP authentication.
+5. Use a propose-only Application Password user without `publish_posts` / `edit_published_posts` capabilities.
+
+**For agents**: Share this repository URL with your agent and ask it to install Draft Changes and MCP Adapter on your WordPress site. The agent can then use Draft Changes abilities to stage content, preview via `?changeset=<UUID>` URLs, and publish after your approval.
 
 == Changelog ==
 
