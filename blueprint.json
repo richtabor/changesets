@@ -1,9 +1,9 @@
 {
   "$schema": "https://playground.wordpress.net/blueprint-schema.json",
-  "landingPage": "/wp-admin/edit.php",
+  "landingPage": "/wp-admin/edit.php?post_type=dcp_changeset",
   "preferredVersions": {
     "php": "8.2",
-    "wp": "6.9"
+    "wp": "latest"
   },
   "steps": [
     {
@@ -16,7 +16,8 @@
       "pluginData": {
         "resource": "git:directory",
         "url": "https://github.com/richtabor/draft-changes",
-        "ref": "main"
+        "ref": "main",
+        "refType": "branch"
       },
       "options": {
         "activate": true
@@ -24,7 +25,7 @@
     },
     {
       "step": "runPHP",
-      "code": "<?php require '/wordpress/wp-load.php'; $id = wp_insert_post([ 'post_title' => 'Homepage (live)', 'post_content' => '<!-- wp:paragraph --><p>Old homepage copy. Vague CTA.</p><!-- /wp:paragraph -->', 'post_status' => 'publish', 'post_type' => 'page' ]); update_option( 'show_on_front', 'page' ); update_option( 'page_on_front', $id ); echo 'Seeded page ' . $id;"
+      "code": "<?php\nrequire '/wordpress/wp-load.php';\n\n// Create and publish homepage\n$home_id = wp_insert_post([\n  'post_title' => 'Welcome to Our Store',\n  'post_content' => '<!-- wp:heading --><h2>Discover Amazing Products</h2><!-- /wp:heading --><!-- wp:paragraph --><p>Browse our collection of carefully curated items. Shop now and enjoy free shipping on orders over $50.</p><!-- /wp:paragraph -->',\n  'post_status' => 'publish',\n  'post_type' => 'page'\n]);\n\nif (!is_wp_error($home_id)) {\n  update_option('show_on_front', 'page');\n  update_option('page_on_front', $home_id);\n}\n\n// Create changeset\n$changeset_id = dcp_create_changeset('Try Draft Changes');\n\nif (!is_wp_error($changeset_id)) {\n  // Stage homepage and update with improved content\n  $staged_home_id = dcp_stage_content($changeset_id, $home_id);\n  \n  if (!is_wp_error($staged_home_id)) {\n    dcp_update_staged_content($staged_home_id, [\n      'title' => 'Welcome to Our Premium Store',\n      'content' => '<!-- wp:heading --><h2>Shop Premium Products with Confidence</h2><!-- /wp:heading --><!-- wp:paragraph --><p>Explore our exclusive collection of handpicked premium items. <strong>Limited time offer:</strong> Free shipping on all orders, plus 20% off your first purchase!</p><!-- /wp:paragraph --><!-- wp:buttons --><div class=\"wp-block-buttons\"><!-- wp:button --><div class=\"wp-block-button\"><a class=\"wp-block-button__link wp-element-button\" href=\"#\">Shop Now</a></div><!-- /wp:button --></div><!-- /wp:buttons -->'\n    ]);\n  }\n  \n  // Create staged Contact page (new page, no source)\n  $staged_contact_id = wp_insert_post([\n    'post_type' => 'page',\n    'post_status' => 'draft',\n    'post_title' => 'Contact Us',\n    'post_content' => '<!-- wp:heading --><h2>Get in Touch</h2><!-- /wp:heading --><!-- wp:paragraph --><p>Have questions? We are here to help! Reach out to our support team:</p><!-- /wp:paragraph --><!-- wp:paragraph --><p><strong>Email:</strong> hello@example.com<br><strong>Phone:</strong> (555) 123-4567<br><strong>Hours:</strong> Mon-Fri, 9am-5pm EST</p><!-- /wp:paragraph -->'\n  ]);\n  \n  if ($staged_contact_id && !is_wp_error($staged_contact_id)) {\n    update_post_meta($staged_contact_id, '_dcp_is_staged', 1);\n    update_post_meta($staged_contact_id, '_dcp_changeset_id', $changeset_id);\n    update_post_meta($staged_contact_id, '_dcp_source_id', 0);\n  }\n  \n  // Store preview URL for reference\n  $uuid = dcp_get_changeset_uuid($changeset_id);\n  $preview_url = dcp_get_preview_url($changeset_id);\n  update_option('dcp_demo_preview_url', $preview_url);\n  update_option('dcp_demo_uuid', $uuid);\n  \n  echo \"Demo ready! Changeset created with ID: {$changeset_id}\\n\";\n  echo \"Preview URL: {$preview_url}\\n\";\n  echo \"UUID: {$uuid}\\n\";\n}"
     }
   ]
 }
