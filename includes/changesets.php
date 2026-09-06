@@ -187,7 +187,7 @@ function cs_get_changeset_uuid( $changeset_id ) {
  */
 function cs_is_stageable_post_type( $post_type ) {
 	// Exclude changeset CPT itself and attachments.
-	if ( 'cs_changeset' === $post_type || 'attachment' === $post_type ) {
+	if ( 'changeset' === $post_type || 'attachment' === $post_type ) {
 		return false;
 	}
 

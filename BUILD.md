@@ -57,11 +57,7 @@ Everything visitor-facing that is a WP post type gets a **draft clone** tagged i
 
 | Entity | post_type | Meta on clone |
 |---|---|---|
-<<<<<<< HEAD
-| Page / post | `page` / `post` | `_changeset_changeset_id`, `_changeset_source`, `_changeset_is_staged` |
-=======
 | Page / post | `page` / `post` | `_changeset_id`, `_changeset_source`, `_changeset_is_staged` |
->>>>>>> 0748316 (Fix CPT and meta key naming)
 | Template | `wp_template` | same |
 | Template part | `wp_template_part` | same |
 | Navigation | `wp_navigation` | same |
