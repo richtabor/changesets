@@ -124,6 +124,8 @@ Category: `changesets` (label: "Changesets")
 4. Human: Approve Changeset (ability or UI)
 5. `publish-changeset` — live updates; staged drafts gone
 
+
+**Public try**: See [`TRY.md`](TRY.md) for the one-click WordPress Playground demo (human preview + disposable agent path via `@wp-playground/mcp`).
 ## Success criteria
 
 - [x] CPT + uuid + open changeset works
