@@ -933,7 +933,7 @@ add_action( 'transition_post_status', 'dcp_prevent_staged_publish', 10, 3 );
  */
 function dcp_get_preview_url( $changeset_id ) {
 	$uuid = dcp_get_changeset_uuid( $changeset_id );
-	return add_query_arg( 'dcp_changeset', $uuid, home_url( '/' ) );
+	return add_query_arg( 'changeset', $uuid, home_url( '/' ) );
 }
 
 /**
@@ -948,8 +948,8 @@ function dcp_set_preview_cookie( $uuid ) {
 	if ( headers_sent() ) {
 		return;
 	}
-	setcookie( 'dcp_changeset', $uuid, 0, '/', '', is_ssl(), true );
-	$_COOKIE['dcp_changeset'] = $uuid;
+	setcookie( 'changeset', $uuid, 0, '/', '', is_ssl(), true );
+	$_COOKIE['changeset'] = $uuid;
 }
 
 /**
@@ -958,11 +958,11 @@ function dcp_set_preview_cookie( $uuid ) {
  * Expires the cookie by setting it to empty with a past timestamp.
  */
 function dcp_clear_preview_cookie() {
-	unset( $_COOKIE['dcp_changeset'] );
+	unset( $_COOKIE['changeset'] );
 	if ( headers_sent() ) {
 		return;
 	}
-	setcookie( 'dcp_changeset', '', time() - YEAR_IN_SECONDS, '/', '', is_ssl(), true );
+	setcookie( 'changeset', '', time() - YEAR_IN_SECONDS, '/', '', is_ssl(), true );
 }
 
 /**
@@ -971,6 +971,14 @@ function dcp_clear_preview_cookie() {
  * @return string|null
  */
 function dcp_get_active_preview_uuid() {
+	// Check new parameter/cookie first, then fall back to legacy dcp_changeset for backward compatibility.
+	if ( isset( $_GET['changeset'] ) && $_GET['changeset'] ) {
+		return sanitize_text_field( wp_unslash( $_GET['changeset'] ) );
+	}
+	if ( isset( $_COOKIE['changeset'] ) && $_COOKIE['changeset'] ) {
+		return sanitize_text_field( wp_unslash( $_COOKIE['changeset'] ) );
+	}
+	// Backward compatibility with old parameter/cookie name.
 	if ( isset( $_GET['dcp_changeset'] ) && $_GET['dcp_changeset'] ) {
 		return sanitize_text_field( wp_unslash( $_GET['dcp_changeset'] ) );
 	}
@@ -987,7 +995,7 @@ function dcp_init_preview() {
 	// Exit first — clear cookie even if UUID only lived in the cookie.
 	if ( isset( $_GET['dcp_exit_preview'] ) ) {
 		dcp_clear_preview_cookie();
-		wp_safe_redirect( remove_query_arg( array( 'dcp_exit_preview', 'dcp_changeset' ) ) );
+		wp_safe_redirect( remove_query_arg( array( 'dcp_exit_preview', 'changeset', 'dcp_changeset' ) ) );
 		exit;
 	}
 
@@ -1002,7 +1010,7 @@ function dcp_init_preview() {
 		return;
 	}
 
-	if ( isset( $_GET['dcp_changeset'] ) ) {
+	if ( isset( $_GET['changeset'] ) || isset( $_GET['dcp_changeset'] ) ) {
 		dcp_set_preview_cookie( $uuid );
 	}
 }

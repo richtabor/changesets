@@ -33,7 +33,7 @@ Since staging is currently MCP-only in this version, you can verify staged conte
 3. **Verify**: 
    - Admin bar shows "Viewing changeset: [title]"
    - Admin bar has "Exit Preview" and optionally "Publish Changeset" links
-   - Cookie `dcp_changeset` is set
+   - Cookie `changeset` is set
 4. Navigate site — **Verify**: stayed in preview (cookie works)
 5. Click **Exit Preview**
 6. **Verify**: Back to live view, cookie cleared
@@ -69,7 +69,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/create-
 # {
 #   "changeset_id": 123,
 #   "uuid": "a1b2c3d4-...",
-#   "preview_url": "https://your-site.com/?dcp_changeset=a1b2c3d4-...",
+#   "preview_url": "https://your-site.com/?changeset=a1b2c3d4-...",
 #   "status": "open"
 # }
 
@@ -99,7 +99,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/update-
 # }
 
 # 4. Preview (visit preview_url in browser)
-# https://your-site.com/?dcp_changeset=a1b2c3d4-...
+# https://your-site.com/?changeset=a1b2c3d4-...
 # Verify: See staged changes, admin bar shows preview notice
 
 # 5. Get changeset with staged items
