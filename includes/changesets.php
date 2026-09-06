@@ -30,6 +30,7 @@ function dcp_register_changeset_cpt() {
 			'show_ui'             => true,
 			'show_in_menu'        => true,
 			'capability_type'     => 'post',
+			'map_meta_cap'        => true,
 			'supports'            => array( 'title' ),
 			'has_archive'         => false,
 			'rewrite'             => false,
@@ -938,47 +939,30 @@ function dcp_get_preview_url( $changeset_id ) {
 /**
  * Set preview cookie.
  *
+ * Session cookie (expires on browser close) with httponly for security.
+ * Set at site root (/) to work across all pages.
+ *
  * @param string $uuid Changeset UUID.
  */
 function dcp_set_preview_cookie( $uuid ) {
 	if ( headers_sent() ) {
 		return;
 	}
-	$path = defined( 'COOKIEPATH' ) && COOKIEPATH ? COOKIEPATH : '/';
-	$secure = is_ssl();
-	// Session cookie; empty domain lets the host set it for this site.
-	setcookie( 'dcp_changeset', $uuid, 0, $path, '', $secure, true );
-	if ( '/' !== $path ) {
-		setcookie( 'dcp_changeset', $uuid, 0, '/', '', $secure, true );
-	}
+	setcookie( 'dcp_changeset', $uuid, 0, '/', '', is_ssl(), true );
 	$_COOKIE['dcp_changeset'] = $uuid;
 }
 
 /**
  * Clear preview cookie.
+ *
+ * Expires the cookie by setting it to empty with a past timestamp.
  */
 function dcp_clear_preview_cookie() {
 	unset( $_COOKIE['dcp_changeset'] );
 	if ( headers_sent() ) {
 		return;
 	}
-	$secure = is_ssl();
-	$past   = time() - YEAR_IN_SECONDS;
-	$paths  = array_unique(
-		array_filter(
-			array(
-				defined( 'COOKIEPATH' ) ? COOKIEPATH : '',
-				defined( 'SITECOOKIEPATH' ) ? SITECOOKIEPATH : '',
-				'/',
-			)
-		)
-	);
-	foreach ( $paths as $path ) {
-		setcookie( 'dcp_changeset', '', $past, $path, '', $secure, true );
-		if ( defined( 'COOKIE_DOMAIN' ) && COOKIE_DOMAIN ) {
-			setcookie( 'dcp_changeset', '', $past, $path, COOKIE_DOMAIN, $secure, true );
-		}
-	}
+	setcookie( 'dcp_changeset', '', time() - YEAR_IN_SECONDS, '/', '', is_ssl(), true );
 }
 
 /**
@@ -1029,11 +1013,14 @@ add_action( 'init', 'dcp_init_preview' );
 /**
  * Load staged draft IDs for the active preview changeset once per request.
  *
+ * Optimized with a single indexed query and static caching.
+ *
  * @return array{changeset_id:int, map:array<int,int>, new_ids:array<int>}|null
  */
 function dcp_preview_staged_index() {
 	static $index = null;
 	static $loaded = false;
+
 	if ( $loaded ) {
 		return $index;
 	}
@@ -1041,39 +1028,50 @@ function dcp_preview_staged_index() {
 
 	$uuid = dcp_get_active_preview_uuid();
 	if ( ! $uuid ) {
-		$index = null;
 		return null;
 	}
 
 	$changeset = dcp_get_changeset( $uuid );
 	if ( ! $changeset ) {
-		$index = null;
 		return null;
 	}
 
 	global $wpdb;
 	$rows = $wpdb->get_results(
 		$wpdb->prepare(
-			"SELECT p.ID, COALESCE(src.meta_value, '0') AS source_id
+			"SELECT p.ID, MAX(CASE WHEN pm.meta_key = %s THEN pm.meta_value END) AS source_id
 			FROM {$wpdb->posts} p
-			INNER JOIN {$wpdb->postmeta} st ON (st.post_id = p.ID AND st.meta_key = '_dcp_is_staged' AND st.meta_value = '1')
-			INNER JOIN {$wpdb->postmeta} cs ON (cs.post_id = p.ID AND cs.meta_key = '_dcp_changeset_id' AND cs.meta_value = %d)
-			LEFT JOIN {$wpdb->postmeta} src ON (src.post_id = p.ID AND src.meta_key = %s)
-			WHERE p.post_status = 'draft'",
-			$changeset->ID,
-			DCP_META_SOURCE
+			INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
+			WHERE p.post_status = 'draft'
+			AND pm.meta_key IN ('_dcp_is_staged', '_dcp_changeset_id', %s)
+			AND EXISTS (
+				SELECT 1 FROM {$wpdb->postmeta} pm2
+				WHERE pm2.post_id = p.ID
+				AND pm2.meta_key = '_dcp_is_staged'
+				AND pm2.meta_value = '1'
+			)
+			AND EXISTS (
+				SELECT 1 FROM {$wpdb->postmeta} pm3
+				WHERE pm3.post_id = p.ID
+				AND pm3.meta_key = '_dcp_changeset_id'
+				AND pm3.meta_value = %d
+			)
+			GROUP BY p.ID",
+			DCP_META_SOURCE,
+			DCP_META_SOURCE,
+			$changeset->ID
 		)
 	);
 
 	$map     = array();
 	$new_ids = array();
-	foreach ( (array) $rows as $row ) {
-		$sid = (int) $row->ID;
-		$src = (int) $row->source_id;
-		if ( $src > 0 ) {
-			$map[ $src ] = $sid;
+	foreach ( $rows as $row ) {
+		$staged_id = (int) $row->ID;
+		$source_id = (int) $row->source_id;
+		if ( $source_id > 0 ) {
+			$map[ $source_id ] = $staged_id;
 		} else {
-			$new_ids[] = $sid;
+			$new_ids[] = $staged_id;
 		}
 	}
 
@@ -1086,7 +1084,9 @@ function dcp_preview_staged_index() {
 }
 
 /**
- * Overlay staged content in WP_Query results during preview (no nested queries).
+ * Overlay staged content in WP_Query results during preview.
+ *
+ * Efficiently swaps live posts with their staged versions using pre-loaded index.
  *
  * @param array    $posts Posts.
  * @param WP_Query $query Query.
@@ -1094,16 +1094,20 @@ function dcp_preview_staged_index() {
  */
 function dcp_overlay_staged_content( $posts, $query ) {
 	$index = dcp_preview_staged_index();
-	if ( ! $index ) {
+	if ( ! $index || ! $posts ) {
 		return $posts;
 	}
 
 	$map     = $index['map'];
 	$new_ids = $index['new_ids'];
 
+	// Swap live posts with staged versions.
 	foreach ( $posts as $i => $post ) {
 		if ( isset( $map[ (int) $post->ID ] ) ) {
-			$staged = get_post( $map[ (int) $post->ID ] );
+			$staged = wp_cache_get( $map[ (int) $post->ID ], 'posts' );
+			if ( ! $staged ) {
+				$staged = get_post( $map[ (int) $post->ID ] );
+			}
 			if ( $staged ) {
 				$overlay              = clone $staged;
 				$overlay->ID          = $post->ID;
@@ -1114,24 +1118,25 @@ function dcp_overlay_staged_content( $posts, $query ) {
 		}
 	}
 
-	$post_type = $query->get( 'post_type' );
+	// Inject brand-new staged pages for relevant queries.
+	$post_type   = $query->get( 'post_type' );
 	$wants_pages = ( 'page' === $post_type ) || ( is_array( $post_type ) && in_array( 'page', $post_type, true ) );
-	if ( $new_ids && ( $wants_pages || ( $posts && isset( $posts[0]->post_type ) && 'page' === $posts[0]->post_type ) ) ) {
-		$existing = array();
-		foreach ( $posts as $p ) {
-			$existing[ (int) $p->ID ] = true;
-		}
+
+	if ( $new_ids && $wants_pages ) {
+		$existing = array_flip( wp_list_pluck( $posts, 'ID' ) );
 		foreach ( $new_ids as $staged_id ) {
-			if ( isset( $existing[ (int) $staged_id ] ) ) {
+			if ( isset( $existing[ $staged_id ] ) ) {
 				continue;
 			}
-			$staged = get_post( $staged_id );
+			$staged = wp_cache_get( $staged_id, 'posts' );
 			if ( ! $staged ) {
-				continue;
+				$staged = get_post( $staged_id );
 			}
-			$overlay              = clone $staged;
-			$overlay->post_status = 'publish';
-			$posts[]              = $overlay;
+			if ( $staged && 'page' === $staged->post_type ) {
+				$overlay              = clone $staged;
+				$overlay->post_status = 'publish';
+				$posts[]              = $overlay;
+			}
 		}
 	}
 
@@ -1357,7 +1362,7 @@ add_action( 'before_delete_post', 'dcp_delete_changeset_staged', 10, 2 );
  * @return bool
  */
 function dcp_user_can_approve_changeset( $changeset_id ) {
-	return current_user_can( 'apply_content_proposals' ) || current_user_can( 'publish_posts' ) || current_user_can( 'publish_pages' );
+	return current_user_can( 'approve_changesets' ) || current_user_can( 'publish_posts' ) || current_user_can( 'publish_pages' );
 }
 
 /**
@@ -1367,5 +1372,5 @@ function dcp_user_can_approve_changeset( $changeset_id ) {
  * @return bool
  */
 function dcp_user_can_publish_changeset( $changeset_id ) {
-	return dcp_user_can_approve_changeset( $changeset_id );
+	return current_user_can( 'publish_changesets' ) || current_user_can( 'publish_posts' ) || current_user_can( 'publish_pages' );
 }

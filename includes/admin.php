@@ -33,8 +33,8 @@ function dcp_render_changeset_bar() {
 	$title  = get_the_title( $changeset );
 	$status = dcp_get_changeset_status( $changeset->ID );
 	?>
-		<style>
-		/* Match WP admin bar: fixed desktop, absolute (scrolls away) mobile. */
+	<style id="dcp-changeset-bar-styles">
+		/* Changeset preview bar — matches WP admin bar behavior (fixed desktop, scrolls on mobile). */
 		html.dcp-previewing {
 			--dcp-changeset-bar-height: 32px;
 			margin-top: var(--dcp-changeset-bar-height) !important;
@@ -152,7 +152,7 @@ function dcp_render_changeset_bar() {
 			}
 		}
 	</style>
-	<div class="dcp-changeset-bar" role="region" aria-label="<?php echo esc_attr__( 'Changeset preview', 'draft-changes' ); ?>">
+	<div class="dcp-changeset-bar" role="banner" aria-label="<?php echo esc_attr__( 'Changeset preview', 'draft-changes' ); ?>">
 		<div class="dcp-changeset-bar__label">
 			<span class="dcp-changeset-bar__kicker"><?php echo esc_html__( 'Changeset', 'draft-changes' ); ?></span>
 			<span class="dcp-changeset-bar__title"><?php echo esc_html( $title ); ?></span>
@@ -164,10 +164,16 @@ function dcp_render_changeset_bar() {
 			<?php echo esc_html__( 'Exit Changeset', 'draft-changes' ); ?>
 		</a>
 	</div>
+	<script>
+		// Ensure one admin-bar offset: remove html margin if admin-bar present.
+		if ( document.body.classList.contains( 'admin-bar' ) ) {
+			document.documentElement.style.setProperty( '--dcp-changeset-bar-offset', '0px' );
+		}
+	</script>
 	<?php
 }
 add_action( 'wp_body_open', 'dcp_render_changeset_bar', 1 );
-add_action( 'wp_footer', 'dcp_render_changeset_bar_footer_fallback', 1 );
+add_action( 'wp_footer', 'dcp_render_changeset_bar_footer_fallback', 999 );
 
 /**
  * Fallback if the theme never calls wp_body_open.
