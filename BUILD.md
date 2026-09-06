@@ -118,6 +118,8 @@ Category: `changesets` (label: "Changesets")
 
 ## Demo script (MCP — no SSH)
 
+**Requires hosted WordPress** with Draft Changes + MCP Adapter + Application Password.
+
 1. `create-changeset` “Home copy”
 2. `stage-content` for Home → `update-staged-content` (heading change)
 3. Open `preview_url` — see change; Exit — see live unchanged
@@ -125,7 +127,6 @@ Category: `changesets` (label: "Changesets")
 5. `publish-changeset` — live updates; staged drafts gone
 
 
-**Public try**: See [`readme.txt`](readme.txt) for the one-click WordPress Playground demo (human preview + disposable agent path via `@wp-playground/mcp`).
 ## Success criteria
 
 - [x] CPT + uuid + open changeset works
