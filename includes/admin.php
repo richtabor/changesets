@@ -11,6 +11,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Admin notice / banner on proposal and source editors.
  */
 function dcp_admin_notices() {
+	if ( isset( $_GET['dcp_approved'] ) ) {
+		echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Proposal approved. An agent can Publish Live now.', 'draft-changes' ) . '</p></div>';
+	}
+
 	$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 	if ( ! $screen || 'post' !== $screen->base ) {
 		return;
@@ -26,12 +30,13 @@ function dcp_admin_notices() {
 		$source    = get_post( $source_id );
 		$title     = $source ? $source->post_title : __( '(missing)', 'draft-changes' );
 		$edit      = $source_id ? get_edit_post_link( $source_id ) : '';
+		$approved  = dcp_is_approved( $post_id );
 
 		echo '<div class="notice notice-info" style="padding:12px 16px"><p style="margin:0 0 8px">';
 		echo esc_html(
 			sprintf(
 				/* translators: %s: source post title */
-				__( 'This is a proposal. Live content stays published until you Apply to live. Source: %s', 'draft-changes' ),
+				__( 'This is a proposal. Live content stays published until Publish Live. Source: %s', 'draft-changes' ),
 				$title
 			)
 		);
@@ -41,13 +46,23 @@ function dcp_admin_notices() {
 		echo '</p>';
 
 		if ( dcp_user_can_apply_proposal( $post_id ) ) {
+			if ( $approved ) {
+				echo '<p style="margin:0 0 8px"><strong>' . esc_html__( 'Approved — an agent can Publish Live, or you can Publish Live yourself.', 'draft-changes' ) . '</strong></p>';
+			} else {
+				$approve_url = wp_nonce_url(
+					admin_url( 'admin-post.php?action=dcp_approve&post_id=' . $post_id ),
+					'dcp_approve_' . $post_id
+				);
+				echo '<p style="margin:0 0 8px">' . esc_html__( 'Approve first so an agent can Publish Live. Or Publish Live yourself from the editor button.', 'draft-changes' ) . '</p>';
+				echo '<p style="margin:0 0 8px"><a class="button button-secondary" href="' . esc_url( $approve_url ) . '">' . esc_html__( 'Approve', 'draft-changes' ) . '</a></p>';
+			}
 			$url = wp_nonce_url(
 				admin_url( 'admin-post.php?action=dcp_apply&post_id=' . $post_id ),
 				'dcp_apply_' . $post_id
 			);
-			echo '<p style="margin:0"><a class="button button-primary button-hero" href="' . esc_url( $url ) . '">' . esc_html__( 'Apply to live', 'draft-changes' ) . '</a></p>';
+			echo '<p style="margin:0"><a class="button button-primary" href="' . esc_url( $url ) . '">' . esc_html__( 'Publish Live', 'draft-changes' ) . '</a></p>';
 		} else {
-			echo '<p style="margin:0">' . esc_html__( 'You do not have permission to apply this proposal.', 'draft-changes' ) . '</p>';
+			echo '<p style="margin:0">' . esc_html__( 'You do not have permission to approve or publish this proposal.', 'draft-changes' ) . '</p>';
 		}
 		echo '</div>';
 		return;
@@ -86,8 +101,18 @@ function dcp_render_apply_metabox( $post ) {
 		admin_url( 'admin-post.php?action=dcp_apply&post_id=' . (int) $post->ID ),
 		'dcp_apply_' . (int) $post->ID
 	);
-	echo '<p>' . esc_html__( 'Copy this proposal onto the live published post, save a revision for undo, then trash the proposal.', 'draft-changes' ) . '</p>';
-	echo '<p><a class="button button-primary" href="' . esc_url( $url ) . '">' . esc_html__( 'Apply to live', 'draft-changes' ) . '</a></p>';
+	$approved = dcp_is_approved( $post->ID );
+	if ( ! $approved ) {
+		$approve_url = wp_nonce_url(
+			admin_url( 'admin-post.php?action=dcp_approve&post_id=' . (int) $post->ID ),
+			'dcp_approve_' . (int) $post->ID
+		);
+		echo '<p>' . esc_html__( 'Approve so an agent can Publish Live. You can also Publish Live yourself anytime.', 'draft-changes' ) . '</p>';
+		echo '<p><a class="button" href="' . esc_url( $approve_url ) . '">' . esc_html__( 'Approve', 'draft-changes' ) . '</a></p>';
+	} else {
+		echo '<p><strong>' . esc_html__( 'Approved — agent may Publish Live.', 'draft-changes' ) . '</strong></p>';
+	}
+	echo '<p><a class="button button-primary" href="' . esc_url( $url ) . '">' . esc_html__( 'Publish Live', 'draft-changes' ) . '</a></p>';
 }
 
 /**
@@ -110,6 +135,25 @@ add_action( 'add_meta_boxes', 'dcp_add_metaboxes' );
 /**
  * Handle Apply to live via admin-post (works from block editor link).
  */
+
+/**
+ * Human Approve — unlocks agent Publish Live ability.
+ */
+function dcp_handle_approve() {
+	$post_id = isset( $_GET['post_id'] ) ? (int) $_GET['post_id'] : 0;
+	check_admin_referer( 'dcp_approve_' . $post_id );
+	if ( ! $post_id || ! dcp_user_can_apply_proposal( $post_id ) ) {
+		wp_die( esc_html__( 'Cannot approve this proposal.', 'draft-changes' ) );
+	}
+	$result = dcp_approve_proposal( $post_id );
+	if ( is_wp_error( $result ) ) {
+		wp_die( esc_html( $result->get_error_message() ) );
+	}
+	wp_safe_redirect( add_query_arg( 'dcp_approved', '1', get_edit_post_link( $post_id, 'raw' ) ) );
+	exit;
+}
+add_action( 'admin_post_dcp_approve', 'dcp_handle_approve' );
+
 function dcp_handle_apply_post() {
 	$post_id = isset( $_GET['post_id'] ) ? (int) $_GET['post_id'] : 0;
 	if ( ! $post_id || ! dcp_is_proposal( $post_id ) ) {

@@ -203,6 +203,7 @@ function dcp_register_abilities() {
 					'excerpt'        => array( 'type' => 'string' ),
 					'status'         => array( 'type' => 'string' ),
 					'edit_url'       => array( 'type' => 'string' ),
+					'approved'       => array( 'type' => 'boolean' ),
 				),
 			),
 			'execute_callback'    => 'dcp_ability_get_proposal',
@@ -213,6 +214,46 @@ function dcp_register_abilities() {
 				'annotations'  => array(
 					'readonly'    => true,
 					'destructive' => false,
+				),
+			),
+		)
+	);
+
+	wp_register_ability(
+		'draft-changes/publish-live',
+		array(
+			'label'               => __( 'Publish Live', 'draft-changes' ),
+			'description'         => __( 'Apply an approved proposal onto the live published post or page (same URL), save a native revision for undo, then permanently delete the proposal. Requires a human to have approved the proposal first (Approve in the editor). Does nothing if not approved. Prefer this after human review when asked to publish the proposal live.', 'draft-changes' ),
+			'category'            => 'content-proposals',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'proposal_id' => array(
+						'type'        => 'integer',
+						'description' => 'ID of the approved proposal to publish live.',
+						'minimum'     => 1,
+					),
+				),
+				'required'             => array( 'proposal_id' ),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'source_post_id' => array( 'type' => 'integer' ),
+					'applied'        => array( 'type' => 'boolean' ),
+					'view_url'       => array( 'type' => 'string' ),
+				),
+			),
+			'execute_callback'    => 'dcp_ability_publish_live',
+			'permission_callback' => 'dcp_ability_can_publish_live',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'public'       => true,
+				'annotations'  => array(
+					'readonly'    => false,
+					'destructive' => true,
+					'idempotent'  => false,
 				),
 			),
 		)
@@ -331,6 +372,41 @@ function dcp_ability_get_proposal( $input ) {
 		'content'        => $post->post_content,
 		'excerpt'        => $post->post_excerpt,
 		'status'         => $post->post_status,
+		'approved'       => dcp_is_approved( $proposal_id ),
 		'edit_url'       => get_edit_post_link( $proposal_id, 'raw' ),
 	);
+}
+
+/**
+ * @param array $input Input.
+ * @return bool
+ */
+function dcp_ability_can_publish_live( $input ) {
+	$proposal_id = isset( $input['proposal_id'] ) ? (int) $input['proposal_id'] : 0;
+	return $proposal_id && dcp_user_can_apply_proposal( $proposal_id );
+}
+
+/**
+ * Agent Publish Live — requires prior human approval.
+ *
+ * @param array $input Input.
+ * @return array|WP_Error
+ */
+function dcp_ability_publish_live( $input ) {
+	$proposal_id = (int) $input['proposal_id'];
+	if ( ! dcp_is_approved( $proposal_id ) ) {
+		return new WP_Error(
+			'dcp_not_approved',
+			__( 'A human must Approve this proposal in the editor before Publish Live.', 'draft-changes' ),
+			array( 'proposal_id' => $proposal_id, 'edit_url' => get_edit_post_link( $proposal_id, 'raw' ) )
+		);
+	}
+
+	$result = dcp_apply_proposal( $proposal_id );
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
+
+	$result['view_url'] = get_permalink( $result['source_post_id'] );
+	return $result;
 }

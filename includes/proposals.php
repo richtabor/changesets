@@ -29,6 +29,48 @@ function dcp_get_source_id( $proposal_id ) {
  * @param int $source_id Source post ID.
  * @return int Proposal ID or 0.
  */
+
+/**
+ * Whether a human has approved this proposal for Publish Live.
+ *
+ * @param int $proposal_id Proposal ID.
+ * @return bool
+ */
+function dcp_is_approved( $proposal_id ) {
+	return (bool) get_post_meta( (int) $proposal_id, DCP_META_APPROVED, true );
+}
+
+/**
+ * Mark proposal approved by current user (human gate before agent Publish Live).
+ *
+ * @param int $proposal_id Proposal ID.
+ * @return true|WP_Error
+ */
+function dcp_approve_proposal( $proposal_id ) {
+	$proposal_id = (int) $proposal_id;
+	if ( ! dcp_is_proposal( $proposal_id ) ) {
+		return new WP_Error( 'dcp_not_proposal', __( 'Not a proposal.', 'draft-changes' ) );
+	}
+	if ( ! dcp_user_can_apply_proposal( $proposal_id ) ) {
+		return new WP_Error( 'dcp_forbidden', __( 'You cannot approve this proposal.', 'draft-changes' ) );
+	}
+	update_post_meta( $proposal_id, DCP_META_APPROVED, 1 );
+	update_post_meta( $proposal_id, DCP_META_APPROVED_BY, get_current_user_id() );
+	update_post_meta( $proposal_id, DCP_META_APPROVED_AT, gmdate( 'c' ) );
+	return true;
+}
+
+/**
+ * Clear human approval (e.g. after content changes).
+ *
+ * @param int $proposal_id Proposal ID.
+ */
+function dcp_clear_approval( $proposal_id ) {
+	delete_post_meta( (int) $proposal_id, DCP_META_APPROVED );
+	delete_post_meta( (int) $proposal_id, DCP_META_APPROVED_BY );
+	delete_post_meta( (int) $proposal_id, DCP_META_APPROVED_AT );
+}
+
 function dcp_get_open_proposal_id( $source_id ) {
 	$existing = (int) get_post_meta( (int) $source_id, DCP_META_OPEN_PROPOSAL, true );
 	if ( $existing && dcp_is_proposal( $existing ) && get_post( $existing ) ) {
@@ -145,6 +187,7 @@ function dcp_update_proposal( $proposal_id, $fields ) {
 		return $result;
 	}
 
+	dcp_clear_approval( $proposal_id );
 	return true;
 }
 
