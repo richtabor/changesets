@@ -3,7 +3,7 @@ Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.2.17
+Stable tag: 0.2.18
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,9 @@ Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent acce
 4. Use a propose-only Application Password user without `publish_posts` / `edit_published_posts`.
 
 == Changelog ==
+
+= 0.2.18 =
+* Fix: Register ability category on wp_abilities_api_categories_init hook.
 
 = 0.2.17 =
 * Changeset architecture: staging sessions for site edits.
