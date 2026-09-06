@@ -3,7 +3,7 @@ Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.3.1
+Stable tag: 0.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,9 +17,16 @@ Changesets introduces staging sessions where agents and humans accumulate site e
 
 The live site stays untouched until Publish. Preview shows exactly what visitors will see after publish.
 
-Exposes Abilities (`changesets/create`, `changesets/stage`, `changesets/approve`, `changesets/publish`) so compatible agents can discover the workflow via the Abilities API.
+**v0.4.0** introduces unified `changesets/save` ability for full site staging:
+- **Content**: Pages, posts, templates, template parts, navigation, and custom post types
+- **Styles**: Global styles and style variations
+- **Settings**: Site title, homepage settings, and more
+
+Exposes Abilities (`changesets/create`, `changesets/save`, `changesets/approve`, `changesets/publish`) so compatible agents can discover the workflow via the Abilities API.
 
 Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent access.
+
+**Note**: This plugin works with own-site MCP connections only (not Playground).
 
 == Installation ==
 
@@ -29,6 +36,16 @@ Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent acce
 4. Use a propose-only Application Password user without `publish_posts` / `edit_published_posts`.
 
 == Changelog ==
+
+= 0.4.0 =
+* New: Unified `changesets/save` ability for content, styles, and settings.
+* New: Support for staging templates (wp_template), template parts (wp_template_part), and navigation (wp_navigation).
+* New: Support for staging global styles and style variations.
+* New: Support for staging site settings (blogname, page_on_front, etc).
+* New: Support for staging any public custom post type with show_ui.
+* Breaking: Removed `changesets/stage` ability (replaced by `changesets/save` type=content).
+* Change: Preview overlay now works with all stageable post types.
+* Change: Publish Changeset now applies content, styles, and settings.
 
 = 0.3.1 =
 * Change: Rename ability `changesets/stage-page` to `changesets/stage`.

@@ -180,6 +180,33 @@ function cs_get_changeset_uuid( $changeset_id ) {
 }
 
 /**
+ * Whether a post type is stageable.
+ *
+ * @param string $post_type Post type.
+ * @return bool
+ */
+function cs_is_stageable_post_type( $post_type ) {
+	// Exclude changeset CPT itself and attachments.
+	if ( 'cs_changeset' === $post_type || 'attachment' === $post_type ) {
+		return false;
+	}
+
+	// Always allow core content types and FSE types.
+	$core_types = array( 'page', 'post', 'wp_template', 'wp_template_part', 'wp_navigation' );
+	if ( in_array( $post_type, $core_types, true ) ) {
+		return true;
+	}
+
+	// Allow other public CPTs that have show_ui.
+	$post_type_obj = get_post_type_object( $post_type );
+	if ( ! $post_type_obj ) {
+		return false;
+	}
+
+	return $post_type_obj->public && $post_type_obj->show_ui;
+}
+
+/**
  * Get changeset status.
  *
  * @param int $changeset_id Changeset ID.
@@ -255,13 +282,14 @@ function cs_get_staged_changeset_id( $staged_id ) {
 }
 
 /**
- * Stage content: clone a published post/page into changeset.
+ * Stage content: clone a published post/page/template/etc into changeset.
  *
- * @param int $changeset_id Changeset ID.
- * @param int $source_id    Source post ID.
+ * @param int    $changeset_id Changeset ID.
+ * @param int    $source_id    Source post ID.
+ * @param string $post_type    Optional post type (defaults to source's type).
  * @return int|WP_Error Staged draft ID.
  */
-function cs_stage_content( $changeset_id, $source_id ) {
+function cs_stage_content( $changeset_id, $source_id, $post_type = '' ) {
 	$changeset_id = (int) $changeset_id;
 	$source_id    = (int) $source_id;
 
@@ -271,12 +299,17 @@ function cs_stage_content( $changeset_id, $source_id ) {
 	}
 
 	$source = get_post( $source_id );
-	if ( ! $source || 'publish' !== $source->post_status ) {
-		return new WP_Error( 'cs_invalid_source', __( 'Source must be a published post or page.', 'changesets' ) );
+	if ( ! $source ) {
+		return new WP_Error( 'cs_invalid_source', __( 'Source post not found.', 'changesets' ) );
 	}
 
-	if ( ! in_array( $source->post_type, array( 'post', 'page' ), true ) ) {
-		return new WP_Error( 'cs_unsupported_type', __( 'Only posts and pages are supported in v1.', 'changesets' ) );
+	// Use source's post type if not specified.
+	if ( ! $post_type ) {
+		$post_type = $source->post_type;
+	}
+
+	if ( ! cs_is_stageable_post_type( $post_type ) ) {
+		return new WP_Error( 'cs_unsupported_type', sprintf( __( 'Post type "%s" is not stageable.', 'changesets' ), $post_type ) );
 	}
 
 	if ( cs_is_staged( $source_id ) ) {
@@ -294,7 +327,7 @@ function cs_stage_content( $changeset_id, $source_id ) {
 
 	$staged_id = wp_insert_post(
 		array(
-			'post_type'    => $source->post_type,
+			'post_type'    => $post_type,
 			'post_status'  => 'draft',
 			'post_title'   => $source->post_title,
 			'post_content' => $source->post_content,
@@ -320,13 +353,16 @@ function cs_stage_content( $changeset_id, $source_id ) {
 		set_post_thumbnail( $staged_id, $thumb );
 	}
 
-	foreach ( array( 'category', 'post_tag' ) as $taxonomy ) {
-		if ( ! taxonomy_exists( $taxonomy ) || ! is_object_in_taxonomy( $source->post_type, $taxonomy ) ) {
-			continue;
-		}
-		$terms = wp_get_object_terms( $source_id, $taxonomy, array( 'fields' => 'ids' ) );
-		if ( ! is_wp_error( $terms ) ) {
-			wp_set_object_terms( $staged_id, $terms, $taxonomy );
+	// Copy taxonomy terms for pages/posts.
+	if ( in_array( $post_type, array( 'page', 'post' ), true ) ) {
+		foreach ( array( 'category', 'post_tag' ) as $taxonomy ) {
+			if ( ! taxonomy_exists( $taxonomy ) || ! is_object_in_taxonomy( $post_type, $taxonomy ) ) {
+				continue;
+			}
+			$terms = wp_get_object_terms( $source_id, $taxonomy, array( 'fields' => 'ids' ) );
+			if ( ! is_wp_error( $terms ) ) {
+				wp_set_object_terms( $staged_id, $terms, $taxonomy );
+			}
 		}
 	}
 
@@ -567,15 +603,17 @@ function cs_get_staged_style_variation( $changeset_id ) {
 }
 
 /**
- * Create a brand-new page that lives only inside a changeset (no live source).
+ * Create brand-new content that lives only inside a changeset (no live source).
  *
  * @param int    $changeset_id Changeset ID.
- * @param string $title        Page title.
+ * @param string $post_type    Post type (page, post, wp_template, etc).
+ * @param string $title        Title.
  * @param string $content      Optional content.
  * @param string $slug         Optional slug.
- * @return int|WP_Error Staged page ID.
+ * @param string $theme        Optional theme slug (for templates).
+ * @return int|WP_Error Staged content ID.
  */
-function cs_create_staged_page( $changeset_id, $title, $content = '', $slug = '' ) {
+function cs_create_staged_content( $changeset_id, $post_type, $title = '', $content = '', $slug = '', $theme = '' ) {
 	$changeset_id = (int) $changeset_id;
 
 	$changeset = cs_get_changeset( $changeset_id );
@@ -583,23 +621,32 @@ function cs_create_staged_page( $changeset_id, $title, $content = '', $slug = ''
 		return new WP_Error( 'cs_invalid_changeset', __( 'Invalid changeset.', 'changesets' ) );
 	}
 
-	if ( '' === trim( (string) $title ) ) {
-		return new WP_Error( 'cs_missing_title', __( 'Title is required.', 'changesets' ) );
+	if ( ! cs_is_stageable_post_type( $post_type ) ) {
+		return new WP_Error( 'cs_unsupported_type', sprintf( __( 'Post type "%s" is not stageable.', 'changesets' ), $post_type ) );
 	}
 
-	$slug = $slug ? sanitize_title( $slug ) : sanitize_title( $title );
+	// For templates, handle theme slug.
+	if ( 'wp_template' === $post_type || 'wp_template_part' === $post_type ) {
+		if ( ! $theme ) {
+			$theme = get_stylesheet();
+		}
+		if ( ! $slug ) {
+			$slug = sanitize_title( $title );
+		}
+	} else {
+		$slug = $slug ? sanitize_title( $slug ) : sanitize_title( $title );
+	}
 
-	$staged_id = wp_insert_post(
-		array(
-			'post_type'    => 'page',
-			'post_status'  => 'draft',
-			'post_title'   => $title,
-			'post_content' => $content,
-			'post_author'  => get_current_user_id() ? get_current_user_id() : 1,
-			'post_name'    => $slug,
-		),
-		true
+	$post_data = array(
+		'post_type'    => $post_type,
+		'post_status'  => 'draft',
+		'post_title'   => $title,
+		'post_content' => $content,
+		'post_author'  => get_current_user_id() ? get_current_user_id() : 1,
+		'post_name'    => $slug,
 	);
+
+	$staged_id = wp_insert_post( $post_data, true );
 
 	if ( is_wp_error( $staged_id ) ) {
 		return $staged_id;
@@ -609,7 +656,26 @@ function cs_create_staged_page( $changeset_id, $title, $content = '', $slug = ''
 	update_post_meta( $staged_id, '_changeset_changeset_id', $changeset_id );
 	update_post_meta( $staged_id, CS_META_SOURCE, 0 );
 
+	// For templates, store theme.
+	if ( ( 'wp_template' === $post_type || 'wp_template_part' === $post_type ) && $theme ) {
+		update_post_meta( $staged_id, 'theme', $theme );
+	}
+
 	return $staged_id;
+}
+
+/**
+ * Create a brand-new page that lives only inside a changeset (no live source).
+ *
+ * @deprecated 0.4.0 Use cs_create_staged_content() instead.
+ * @param int    $changeset_id Changeset ID.
+ * @param string $title        Page title.
+ * @param string $content      Optional content.
+ * @param string $slug         Optional slug.
+ * @return int|WP_Error Staged page ID.
+ */
+function cs_create_staged_page( $changeset_id, $title, $content = '', $slug = '' ) {
+	return cs_create_staged_content( $changeset_id, 'page', $title, $content, $slug );
 }
 
 /**
@@ -622,12 +688,12 @@ function cs_create_staged_page( $changeset_id, $title, $content = '', $slug = ''
 function cs_get_staged_draft_for_source( $changeset_id, $source_id ) {
 	$staged = get_posts(
 		array(
-			'post_type'      => array( 'post', 'page' ),
-			'post_status'    => 'draft',
-			'posts_per_page' => 1,
-			'cs_internal'   => true,
+			'post_type'        => 'any',
+			'post_status'      => 'draft',
+			'posts_per_page'   => 1,
+			'cs_internal'      => true,
 			'suppress_filters' => true,
-			'meta_query'     => array(
+			'meta_query'       => array(
 				array(
 					'key'   => '_changeset_changeset_id',
 					'value' => (int) $changeset_id,
@@ -641,7 +707,7 @@ function cs_get_staged_draft_for_source( $changeset_id, $source_id ) {
 					'value' => '1',
 				),
 			),
-			'fields'         => 'ids',
+			'fields'           => 'ids',
 		)
 	);
 
@@ -657,7 +723,7 @@ function cs_get_staged_draft_for_source( $changeset_id, $source_id ) {
 function cs_get_staged_drafts( $changeset_id ) {
 	return get_posts(
 		array(
-			'post_type'      => array( 'post', 'page' ),
+			'post_type'      => 'any',
 			'post_status'    => 'draft',
 			'posts_per_page' => -1,
 			'meta_query'     => array(
@@ -740,7 +806,14 @@ function cs_publish_changeset( $changeset_id ) {
 
 		if ( $source_id > 0 ) {
 			$source = get_post( $source_id );
-			if ( ! $source || 'publish' !== $source->post_status ) {
+			if ( ! $source ) {
+				continue;
+			}
+
+			// For templates/parts/navigation, they might be in 'publish' or 'auto-draft' status.
+			// For pages/posts, require 'publish' status.
+			$requires_publish = in_array( $staged->post_type, array( 'page', 'post' ), true );
+			if ( $requires_publish && 'publish' !== $source->post_status ) {
 				continue;
 			}
 
@@ -1118,12 +1191,13 @@ function cs_overlay_staged_content( $posts, $query ) {
 		}
 	}
 
-	// Inject brand-new staged pages for relevant queries.
-	$post_type   = $query->get( 'post_type' );
-	$wants_pages = ( 'page' === $post_type ) || ( is_array( $post_type ) && in_array( 'page', $post_type, true ) );
+	// Inject brand-new staged items for relevant queries.
+	if ( $new_ids ) {
+		$post_type      = $query->get( 'post_type' );
+		$query_types    = is_array( $post_type ) ? $post_type : ( $post_type ? array( $post_type ) : array() );
+		$inject_any     = empty( $query_types );
+		$existing       = array_flip( wp_list_pluck( $posts, 'ID' ) );
 
-	if ( $new_ids && $wants_pages ) {
-		$existing = array_flip( wp_list_pluck( $posts, 'ID' ) );
 		foreach ( $new_ids as $staged_id ) {
 			if ( isset( $existing[ $staged_id ] ) ) {
 				continue;
@@ -1132,7 +1206,11 @@ function cs_overlay_staged_content( $posts, $query ) {
 			if ( ! $staged ) {
 				$staged = get_post( $staged_id );
 			}
-			if ( $staged && 'page' === $staged->post_type ) {
+			if ( ! $staged ) {
+				continue;
+			}
+			// Inject if query wants any type or specifically wants this type.
+			if ( $inject_any || in_array( $staged->post_type, $query_types, true ) ) {
 				$overlay              = clone $staged;
 				$overlay->post_status = 'publish';
 				$posts[]              = $overlay;
