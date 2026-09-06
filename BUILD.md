@@ -1,6 +1,14 @@
-# Changesets — build spec (changeset)
+# Changesets — build spec
 
-Lean WordPress plugin: agents and humans accumulate unpublished site edits in a **Changeset**, preview them on the real site without touching live, then **Publish Changeset**.
+WordPress plugin: agents and humans accumulate site edits in a **Changeset**, preview them on the real site without touching live, then **Publish Changeset**.
+
+## Product goal
+
+A changeset is a temporary version of the site. Agents can stage pages/posts/templates/template parts/navigation/global styles/site settings — preview via `?changeset=` without touching live — then approve + publish. Like Customizer changesets for block themes.
+
+## Version
+
+**0.4.0** — Full site staging with unified `changesets/save` ability.
 
 ## Naming (locked)
 
@@ -10,20 +18,19 @@ Lean WordPress plugin: agents and humans accumulate unpublished site edits in a 
 | **Preview Changeset** | View the site with this changeset overlaid |
 | **Approve Changeset** | Human marks the changeset ready for publish |
 | **Publish Changeset** | Apply all ops in the changeset to live, then close it |
-| Op / entity draft | Internal: a staged clone of a page, template, nav, etc. — not user-facing jargon |
 
-Do **not** use “proposal”, “staging site”, or “Apply to live” as primary UX labels. Keep Ability/API names under `changesets/`.
+Do **not** use "proposal", "staging site", or "Apply to live" as primary UX labels. Keep Ability/API names under `changesets/`.
 
 ## Product principle
 
 Don't give an agent permission to change production when you can give it permission to propose a change instead.
 
-Humans ask for **site outcomes** (“add Contact to the nav”, “warm up the colors”, “update About”). They should not need to know pages vs templates vs global styles vs navigation.
+Humans ask for **site outcomes** ("add Contact to the nav", "warm up the colors", "update About"). They should not need to know pages vs templates vs global styles vs navigation.
 
 ## Requirements
 
 - WordPress ≥ 6.9 (Abilities API in core)
-- Block theme entities preferred (FSE): pages/posts, `wp_template`, `wp_template_part`, `wp_global_styles`, `wp_navigation`
+- Block theme entities preferred (FSE): pages/posts, `wp_template`, `wp_template_part`, `wp_navigation`, global styles
 - One **open** changeset per site for v1 (session bucket); expand later if needed
 - MCP Adapter installed separately (dogfood transport). Test as an MCP agent would — Abilities only, not SSH.
 - No giant dashboard
@@ -34,35 +41,36 @@ Inspired by Customizer **changesets** (`customize_changeset` + preview UUID), ad
 
 ### 1. CPT `cs_changeset`
 
-- `post_title` = human label (“Add Contact”, “Home copy pass”)
+- `post_title` = human label ("Add Contact", "Home copy pass")
 - Status: `draft` (open) → `pending` (approved) → published/closed via meta after Publish Changeset (or trash on discard)
 - Meta:
-  - `_cs_changeset_uuid` — public preview token
-  - `_cs_changeset_status` — `open` | `approved` | `published` | `discarded`
-  - `_cs_approved_by`, `_cs_approved_at` when approved
+  - `_changeset_changeset_uuid` — public preview token
+  - `_changeset_changeset_status` — `open` | `approved` | `published` | `discarded`
+  - `_changeset_approved_by`, `_changeset_approved_at` when approved
+  - `_changeset_staged_options` — site settings bag
+  - `_changeset_staged_global_styles` — global styles JSON
+  - `_changeset_staged_style_variation` — style variation stem
 
 ### 2. Staged entity drafts (ops)
 
-Everything visitor-facing that is already a WP post type gets a **draft clone** tagged into the changeset:
+Everything visitor-facing that is a WP post type gets a **draft clone** tagged into the changeset:
 
 | Entity | post_type | Meta on clone |
 |---|---|---|
-| Page / post | `page` / `post` | `_cs_changeset_id`, `_cs_source_id`, `_cs_is_staged` |
+| Page / post | `page` / `post` | `_changeset_changeset_id`, `_changeset_source`, `_changeset_is_staged` |
 | Template | `wp_template` | same |
 | Template part | `wp_template_part` | same |
-| Global styles | `wp_global_styles` | same |
 | Navigation | `wp_navigation` | same |
+| Custom post types | any public CPT with `show_ui` | same |
 
-v1 implement **page/post content** fully; scaffold hooks for the FSE types so Preview/Publish can grow without renaming.
-
-One open staged draft per source entity per changeset.
+One staged draft per source entity per changeset. Source ID = 0 means brand-new content (no live source).
 
 ### 3. Preview Changeset
 
-- Enter: `?changeset=<uuid>` **or** admin “Preview Changeset”
+- Enter: `?changeset=<uuid>` **or** admin "Preview Changeset"
 - Set cookie `changeset=<uuid>` so clicks stay in preview
 - Admin bar banner: **Viewing changeset — Exit | Publish Changeset** (if approved / can publish)
-- Filters overlay staged drafts over live queries (content, later templates/styles/nav)
+- Filters overlay staged drafts over live queries (content, templates, styles, settings, nav)
 - Hard rule: preview never writes to live entities
 
 ### 4. Publish Changeset
@@ -72,6 +80,10 @@ For each staged draft in the changeset:
 1. Native revision of live source (undo)
 2. Copy staged fields onto live source
 3. Permanently delete staged draft
+
+For staged settings: apply to live options.
+
+For staged global styles: apply to user global styles post.
 
 Then mark changeset `published` and clear preview cookie.
 
@@ -88,14 +100,73 @@ Category: `changesets` (label: "Changesets")
 | `changesets/create` | `{ title? }` → `{ changeset_id, uuid, preview_url, status }` |
 | `changesets/get` | changeset + list of staged entity summaries |
 | `changesets/list` | open/approved |
-| `changesets/stage` | `{ changeset_id, source_post_id }` — clone page/post into changeset |
-| `create-staged-page` | `{ changeset_id, title, content?, slug? }` — brand new page in changeset |
-| `changesets/stage` | `{ staged_id, title?, content?, excerpt? }` |
-| `stage-setting` | `{ changeset_id, key, value }` — stage options (homepage, site title, etc.) |
-| `stage-global-styles` | `{ changeset_id, settings?, styles? }` — stage theme.json edits |
-| `stage-style-variation` | `{ changeset_id, variation }` — apply theme style variation |
+| **`changesets/save`** | **Unified staging ability (v0.4.0)**<br>`type=content`: stage pages/posts/templates/parts/navigation/CPTs (`post_type`, `source_id?`, `title?`, `content?`, `slug?`, `theme?`)<br>`type=styles`: stage global styles or variation (`variation?`, `styles?`, `settings?`)<br>`type=setting`: stage site option (`key`, `value`) |
 | `changesets/approve` | human approval gate |
 | `changesets/publish` | requires approved (for agents); applies all ops |
+
+### `changesets/save` examples
+
+**Stage existing page:**
+```json
+{
+  "changeset_id": 123,
+  "type": "content",
+  "source_id": 5
+}
+```
+
+**Create new page:**
+```json
+{
+  "changeset_id": 123,
+  "type": "content",
+  "post_type": "page",
+  "title": "Contact",
+  "content": "<!-- wp:paragraph --><p>Get in touch</p><!-- /wp:paragraph -->"
+}
+```
+
+**Stage template:**
+```json
+{
+  "changeset_id": 123,
+  "type": "content",
+  "post_type": "wp_template",
+  "source_id": 42
+}
+```
+
+**Apply style variation:**
+```json
+{
+  "changeset_id": 123,
+  "type": "styles",
+  "variation": "twilight"
+}
+```
+
+**Stage global styles:**
+```json
+{
+  "changeset_id": 123,
+  "type": "styles",
+  "styles": {
+    "color": {
+      "palette": [...]
+    }
+  }
+}
+```
+
+**Stage site setting:**
+```json
+{
+  "changeset_id": 123,
+  "type": "setting",
+  "key": "blogname",
+  "value": "My New Site Title"
+}
+```
 
 ## Permissions
 
@@ -107,30 +178,35 @@ Category: `changesets` (label: "Changesets")
 
 - Admin bar when previewing
 - Changeset edit screen: list of staged items, Preview Changeset, Approve Changeset, Publish Changeset
-- On staged page editor: banner “Part of changeset: {title}” + links
+- On staged entity editor: banner "Part of changeset: {title}" + links
 
-## Out of scope (this spike)
+## Out of scope
 
 - Full Atomic duplicate staging environments
 - Multi-open changesets / branching UX
 - ACF / Yoast meta merge
 - Collaborative RTC
+- Playground support (own-site MCP only)
 
 ## Demo script (MCP — no SSH)
 
 **Requires hosted WordPress** with Changesets + MCP Adapter + Application Password.
 
-1. `changesets/create` “Home copy”
-2. `changesets/stage` for Home → `changesets/stage` (heading change)
-3. Open `preview_url` — see change; Exit — see live unchanged
-4. Human: Approve Changeset (ability or UI)
-5. `changesets/publish` — live updates; staged drafts gone
-
+1. `changesets/create` "Home copy"
+2. `changesets/save` type=content, source_id=Home
+3. `changesets/save` type=content (edit title/content)
+4. `changesets/save` type=styles, variation=twilight
+5. `changesets/save` type=setting, key=blogname, value="New Title"
+6. Open `preview_url` — see changes; Exit — see live unchanged
+7. Human: Approve Changeset (ability or UI)
+8. `changesets/publish` — live updates; staged drafts gone
 
 ## Success criteria
 
 - [x] CPT + uuid + open changeset works
-- [x] Stage + update page content without changing live
+- [x] Stage content (pages/posts/templates/parts/navigation/CPTs) via unified `changesets/save` ability
+- [x] Stage global styles and style variations via `changesets/save` ability
+- [x] Stage site settings via `changesets/save` ability
 - [x] Preview via URL param + cookie; admin bar; exit restores live view
 - [x] Approve + Publish Changeset abilities work over MCP Adapter
 - [x] Live URL only changes after Publish Changeset

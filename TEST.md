@@ -5,9 +5,9 @@ Manual and MCP smoke tests for the Changeset architecture.
 ## Prerequisites
 
 - WordPress ≥ 6.9 with Abilities API
-- Changesets plugin active (v0.2.0+)
+- Changesets plugin active (v0.4.0+)
 - At least one published page or post
-- User with `apply_content_proposals` capability (Administrator or Editor)
+- User with `manage_changesets` capability (Administrator or Editor)
 - MCP Adapter installed for MCP tests
 
 ## Manual UI Testing
@@ -19,14 +19,7 @@ Manual and MCP smoke tests for the Changeset architecture.
 3. Enter title (e.g., "Home page update")
 4. **Verify**: Changeset created with UUID
 
-### 2. Stage Content
-
-Since staging is currently MCP-only in this version, you can verify staged content by:
-
-1. Use MCP to stage content (see MCP tests below), or
-2. Directly create a staged draft in the database for testing
-
-### 3. Preview Changeset
+### 2. Preview Changeset
 
 1. Get the preview URL from changeset edit screen
 2. Click **Preview Changeset** button
@@ -38,7 +31,7 @@ Since staging is currently MCP-only in this version, you can verify staged conte
 5. Click **Exit Preview**
 6. **Verify**: Back to live view, cookie cleared
 
-### 4. Approve & Publish
+### 3. Approve & Publish
 
 1. Open changeset with staged content
 2. Click **Approve Changeset** button
@@ -56,14 +49,14 @@ Since staging is currently MCP-only in this version, you can verify staged conte
 
 Ensure MCP Adapter is connected and authenticated to your WordPress site.
 
-### Test Flow
+### Test Flow: Content Staging
 
 ```bash
 # 1. Create changeset
 curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/create \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Home copy pass"}'
+  -d '{"title":"Full site staging test"}'
 
 # Response:
 # {
@@ -73,36 +66,126 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 #   "status": "open"
 # }
 
-# 2. Stage content (clone published post into changeset)
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage \
+# 2. Stage existing page (clone)
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"changeset_id":123,"source_post_id":5}'
+  -d '{"changeset_id":123,"type":"content","source_id":5}'
 
 # Response:
 # {
 #   "staged_id": 456,
-#   "source_post_id": 5,
+#   "changeset_id": 123,
+#   "type": "content",
+#   "source_id": 5,
+#   "post_type": "page",
+#   "title": "...",
 #   "edit_url": "..."
 # }
 
-# 3. Update staged content
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage \
+# 3. Update staged page content
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"staged_id":456,"title":"Updated Heading","content":"<!-- wp:paragraph --><p>New content</p><!-- /wp:paragraph -->"}'
+  -d '{"changeset_id":123,"type":"content","source_id":5,"title":"Updated Title","content":"<!-- wp:paragraph --><p>New content</p><!-- /wp:paragraph -->"}'
+
+# 4. Create brand new page (no source)
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"content","post_type":"page","title":"Contact","content":"<!-- wp:paragraph --><p>Get in touch</p><!-- /wp:paragraph -->","slug":"contact"}'
 
 # Response:
 # {
-#   "staged_id": 456,
-#   "modified_gmt": "2026-09-06T12:00:00"
+#   "staged_id": 457,
+#   "changeset_id": 123,
+#   "type": "content",
+#   "source_id": 0,
+#   "post_type": "page",
+#   "title": "Contact",
+#   "slug": "contact",
+#   "preview_path": "/contact/?changeset=..."
+# }
+```
+
+### Test Flow: Styles Staging
+
+```bash
+# 1. Apply style variation
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"styles","variation":"twilight"}'
+
+# Response:
+# {
+#   "changeset_id": 123,
+#   "type": "styles",
+#   "stem": "05-twilight",
+#   "title": "Twilight",
+#   "staged": true
 # }
 
-# 4. Preview (visit preview_url in browser)
-# https://your-site.com/?changeset=a1b2c3d4-...
-# Verify: See staged changes, admin bar shows preview notice
+# 2. Stage global styles (custom colors)
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"styles","styles":{"color":{"palette":[{"slug":"primary","color":"#ff0000","name":"Primary"}]}}}'
 
-# 5. Get changeset with staged items
+# Response:
+# {
+#   "changeset_id": 123,
+#   "type": "styles",
+#   "staged": true,
+#   "styles": { ... }
+# }
+```
+
+### Test Flow: Settings Staging
+
+```bash
+# 1. Stage site title
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"setting","key":"blogname","value":"New Site Title"}'
+
+# Response:
+# {
+#   "changeset_id": 123,
+#   "type": "setting",
+#   "key": "blogname",
+#   "value": "New Site Title",
+#   "staged": true
+# }
+
+# 2. Stage homepage setting
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"setting","key":"show_on_front","value":"page"}'
+
+# 3. Set front page (if setting show_on_front=page)
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"setting","key":"page_on_front","value":5}'
+```
+
+### Preview Testing
+
+```bash
+# Visit preview URL in browser
+# https://your-site.com/?changeset=a1b2c3d4-...
+
+# Verify:
+# - See all staged changes (content, styles, settings)
+# - Admin bar shows preview notice
+# - Site title reflects staged setting
+# - Colors reflect staged styles
+# - Content shows staged edits
+
+# Get changeset with all staged items
 curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/get \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
@@ -112,13 +195,17 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 # {
 #   "changeset_id": 123,
 #   "uuid": "a1b2c3d4-...",
-#   "title": "Home copy pass",
+#   "title": "Full site staging test",
 #   "status": "open",
 #   "preview_url": "...",
 #   "staged_items": [...]
 # }
+```
 
-# 6. Approve changeset (human gate)
+### Approve and Publish
+
+```bash
+# 1. Approve changeset (human gate)
 curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/approve \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
@@ -131,7 +218,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 #   "preview_url": "..."
 # }
 
-# 7. Publish changeset (requires approved)
+# 2. Publish changeset (requires approved)
 curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/publish \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
@@ -139,19 +226,28 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 
 # Response:
 # {
-#   "applied_count": 1,
-#   "source_ids": [5]
+#   "changeset_id": 123,
+#   "applied_count": 2,
+#   "published_new_count": 1,
+#   "source_ids": [5, 457],
+#   "status": "published"
 # }
 ```
 
 ### Verification After Publish
 
-1. Visit source post live URL
-2. **Verify**: Title and content reflect staged changes
-3. Check post revisions
-4. **Verify**: New revision saved before changeset publish
-5. Check staged draft (post ID 456)
-6. **Verify**: Hard deleted (404)
+1. Visit affected pages live (without changeset query param)
+2. **Verify**: Content reflects staged changes
+3. **Verify**: Site title shows staged value
+4. **Verify**: Styles/colors reflect staged global styles
+5. Check post revisions
+6. **Verify**: New revision saved before changeset publish
+7. Check staged drafts
+8. **Verify**: Hard deleted (404)
+9. Check wp_options table
+10. **Verify**: blogname and other settings updated
+11. Check wp_global_styles post
+12. **Verify**: post_content has staged styles JSON
 
 ## List Changesets
 
@@ -167,9 +263,9 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 #     {
 #       "changeset_id": 123,
 #       "uuid": "...",
-#       "title": "Home copy pass",
+#       "title": "Full site staging test",
 #       "status": "open",
-#       "staged_count": 1,
+#       "staged_count": 3,
 #       "created_gmt": "..."
 #     }
 #   ],
@@ -192,7 +288,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 # {
 #   "code": "cs_not_approved",
 #   "message": "A human must Approve Changeset before Publish Changeset.",
-#   "data": { ... }
+#   "data": { "changeset_id": 123, "preview_url": "..." }
 # }
 ```
 
@@ -200,10 +296,10 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 
 ```bash
 # Try staging same source twice in same changeset
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"changeset_id":123,"source_post_id":5}'
+  -d '{"changeset_id":123,"type":"content","source_id":5}'
 
 # Expected error:
 # {
@@ -213,25 +309,60 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 # }
 ```
 
+### Invalid type
+
+```bash
+# Try using invalid type
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"invalid"}'
+
+# Expected error:
+# {
+#   "code": "cs_invalid_type",
+#   "message": "Invalid type. Must be content, styles, or setting."
+# }
+```
+
+### Unsupported post type
+
+```bash
+# Try staging unsupported post type
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/save \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"changeset_id":123,"type":"content","post_type":"attachment"}'
+
+# Expected error:
+# {
+#   "code": "cs_unsupported_type",
+#   "message": "Post type \"attachment\" is not stageable."
+# }
+```
+
 ### Hard-block staged draft publish
 
-1. Open staged draft in editor (post ID 456)
+1. Open staged draft in editor
 2. Try clicking **Publish** or updating status to `publish`
 3. **Verify**: Status forced back to `draft`
 4. **Verify**: Staged draft never becomes a public URL
 
-
 ## Success Checklist
 
 - [ ] Create changeset via ability
-- [ ] Stage content via ability
-- [ ] Update staged content via ability
-- [ ] Preview URL shows staged changes
+- [ ] Stage content (pages, posts, templates, etc) via `changesets/save` type=content
+- [ ] Stage global styles via `changesets/save` type=styles
+- [ ] Stage style variation via `changesets/save` type=styles
+- [ ] Stage settings via `changesets/save` type=setting
+- [ ] Preview URL shows all staged changes
 - [ ] Admin bar appears in preview mode
 - [ ] Exit preview restores live view
 - [ ] Approve changeset via ability
 - [ ] Publish changeset via ability
 - [ ] Live content updated after publish
+- [ ] Live settings updated after publish
+- [ ] Live styles updated after publish
 - [ ] Staged drafts deleted after publish
 - [ ] Native revision saved
 - [ ] Cannot publish un-approved changeset
