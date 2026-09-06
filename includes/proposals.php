@@ -149,7 +149,7 @@ function dcp_update_proposal( $proposal_id, $fields ) {
 }
 
 /**
- * Apply proposal onto its published source, then trash the proposal.
+ * Apply proposal onto its published source, then permanently delete the proposal.
  *
  * @param int $proposal_id Proposal ID.
  * @return array|WP_Error { source_post_id, applied }
@@ -203,7 +203,7 @@ function dcp_apply_proposal( $proposal_id ) {
 	}
 
 	delete_post_meta( $source_id, DCP_META_OPEN_PROPOSAL );
-	wp_trash_post( $proposal_id );
+	wp_delete_post( $proposal_id, true );
 
 	return array(
 		'source_post_id' => $source_id,

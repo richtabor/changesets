@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Draft Changes
  * Description:       Let agents propose edits to published posts and pages without changing the live version. Humans review in the editor and apply.
- * Version:           0.1.2
+ * Version:           0.1.3
  * Requires at least: 6.9
  * Requires PHP:      7.4
  * Author:            Rich Tabor
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DCP_VERSION', '0.1.2' );
+define( 'DCP_VERSION', '0.1.3' );
 define( 'DCP_FILE', __FILE__ );
 define( 'DCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DCP_URL', plugin_dir_url( __FILE__ ) );
