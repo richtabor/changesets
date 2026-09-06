@@ -383,34 +383,58 @@ function cs_get_staged_options( $changeset_id ) {
 }
 
 /**
- * Stage a site option into a changeset (not applied live until Publish).
+ * Stage a site option or theme_mod into a changeset (not applied live until Publish).
  *
- * Supported keys initially: show_on_front, page_on_front, page_for_posts, blogname, blogdescription.
+ * Supported keys: show_on_front, page_on_front, page_for_posts, blogname, blogdescription, site_icon.
+ * Theme mods: custom_logo.
  *
  * @param int    $changeset_id Changeset ID.
- * @param string $key          Option name.
+ * @param string $key          Option or theme_mod name.
  * @param mixed  $value        Option value.
+ * @param string $store        Optional. 'option' (default) or 'theme_mod'.
  * @return true|WP_Error
  */
-function cs_stage_option( $changeset_id, $key, $value ) {
+function cs_stage_option( $changeset_id, $key, $value, $store = 'option' ) {
 	$changeset = cs_get_changeset( $changeset_id );
 	if ( ! $changeset ) {
 		return new WP_Error( 'cs_invalid_changeset', __( 'Invalid changeset.', 'changesets' ) );
 	}
 
-	$allowed = array( 'show_on_front', 'page_on_front', 'page_for_posts', 'blogname', 'blogdescription' );
-	if ( ! in_array( $key, $allowed, true ) ) {
-		return new WP_Error( 'cs_unsupported_option', __( 'That setting is not stageable yet.', 'changesets' ) );
+	// Normalize store type.
+	$store = in_array( $store, array( 'option', 'theme_mod' ), true ) ? $store : 'option';
+
+	// Auto-detect known theme_mod keys.
+	$theme_mod_keys = array( 'custom_logo' );
+	if ( in_array( $key, $theme_mod_keys, true ) ) {
+		$store = 'theme_mod';
 	}
 
-	if ( in_array( $key, array( 'page_on_front', 'page_for_posts' ), true ) ) {
+	// Allowed options and theme_mods.
+	$allowed_options = array( 'show_on_front', 'page_on_front', 'page_for_posts', 'blogname', 'blogdescription', 'site_icon' );
+	$allowed_theme_mods = array( 'custom_logo' );
+
+	if ( 'theme_mod' === $store ) {
+		if ( ! in_array( $key, $allowed_theme_mods, true ) ) {
+			return new WP_Error( 'cs_unsupported_theme_mod', __( 'That theme mod is not stageable yet.', 'changesets' ) );
+		}
+	} else {
+		if ( ! in_array( $key, $allowed_options, true ) ) {
+			return new WP_Error( 'cs_unsupported_option', __( 'That setting is not stageable yet.', 'changesets' ) );
+		}
+	}
+
+	// Type conversion.
+	if ( in_array( $key, array( 'page_on_front', 'page_for_posts', 'site_icon', 'custom_logo' ), true ) ) {
 		$value = (int) $value;
 	} else {
 		$value = is_string( $value ) ? $value : (string) $value;
 	}
 
-	$bag         = cs_get_staged_options( $changeset_id );
-	$bag[ $key ] = $value;
+	$bag = cs_get_staged_options( $changeset_id );
+	$bag[ $key ] = array(
+		'value' => $value,
+		'store' => $store,
+	);
 	update_post_meta( (int) $changeset_id, '_changeset_staged_options', $bag );
 	return true;
 }
@@ -912,12 +936,27 @@ function cs_publish_changeset( $changeset_id ) {
 	// Apply settings with ID remapping AFTER content is published.
 	$options = cs_get_staged_options( $changeset_id );
 	if ( $options ) {
-		foreach ( $options as $key => $value ) {
+		foreach ( $options as $key => $item ) {
+			// Backward compatibility: direct values (0.4.2) vs new structure (0.5.0+).
+			if ( is_array( $item ) && isset( $item['value'] ) ) {
+				$value = $item['value'];
+				$store = isset( $item['store'] ) ? $item['store'] : 'option';
+			} else {
+				// Old format: direct value, assume option store.
+				$value = $item;
+				$store = 'option';
+			}
+
 			// Remap staged IDs to live IDs for settings that reference posts.
-			if ( in_array( $key, array( 'page_on_front', 'page_for_posts' ), true ) && isset( $staged_to_live[ $value ] ) ) {
+			if ( in_array( $key, array( 'page_on_front', 'page_for_posts', 'site_icon', 'custom_logo' ), true ) && isset( $staged_to_live[ $value ] ) ) {
 				$value = $staged_to_live[ $value ];
 			}
-			update_option( $key, $value );
+
+			if ( 'theme_mod' === $store ) {
+				set_theme_mod( $key, $value );
+			} else {
+				update_option( $key, $value );
+			}
 		}
 		delete_post_meta( $changeset_id, '_changeset_staged_options' );
 	}
@@ -1362,6 +1401,11 @@ function cs_preview_filter_option( $pre, $option ) {
 	}
 	$bag = cs_get_staged_options( $index['changeset_id'] );
 	if ( array_key_exists( $option, $bag ) ) {
+		// 0.5.0+ structure: { value, store }.
+		if ( is_array( $bag[ $option ] ) && isset( $bag[ $option ]['value'] ) ) {
+			return $bag[ $option ]['value'];
+		}
+		// 0.4.2 backward compat: direct value.
 		return $bag[ $option ];
 	}
 	return $pre;
@@ -1371,6 +1415,31 @@ add_filter( 'pre_option_page_on_front', 'cs_preview_filter_option', 10, 2 );
 add_filter( 'pre_option_page_for_posts', 'cs_preview_filter_option', 10, 2 );
 add_filter( 'pre_option_blogname', 'cs_preview_filter_option', 10, 2 );
 add_filter( 'pre_option_blogdescription', 'cs_preview_filter_option', 10, 2 );
+add_filter( 'pre_option_site_icon', 'cs_preview_filter_option', 10, 2 );
+
+/**
+ * Overlay staged theme_mods during preview.
+ *
+ * @param mixed  $pre  Short-circuit value.
+ * @param string $name Theme mod name.
+ * @return mixed
+ */
+function cs_preview_filter_theme_mod( $pre, $name ) {
+	$index = cs_preview_staged_index();
+	if ( ! $index ) {
+		return $pre;
+	}
+	$bag = cs_get_staged_options( $index['changeset_id'] );
+	if ( array_key_exists( $name, $bag ) ) {
+		$item = $bag[ $name ];
+		// Check if this is stored as a theme_mod.
+		if ( is_array( $item ) && isset( $item['store'] ) && 'theme_mod' === $item['store'] && isset( $item['value'] ) ) {
+			return $item['value'];
+		}
+	}
+	return $pre;
+}
+add_filter( 'pre_get_theme_mod_custom_logo', 'cs_preview_filter_theme_mod', 10, 2 );
 
 /**
  * Overlay staged style variation onto user theme.json during preview.

@@ -8,7 +8,7 @@ A changeset is a temporary version of the site. Agents can stage pages/posts/tem
 
 ## Version
 
-**0.4.2** — Publish fix for new pages + homepage settings; discard + status abilities; enhanced get with styles/options.
+**0.5.0** — Featured images, site logo, site icon; media policy: never stage attachments, only IDs.
 
 ## Naming (locked)
 
@@ -26,6 +26,8 @@ Do **not** use "proposal", "staging site", or "Apply to live" as primary UX labe
 Don't give an agent permission to change production when you can give it permission to propose a change instead.
 
 Humans ask for **site outcomes** ("add Contact to the nav", "warm up the colors", "update About"). They should not need to know pages vs templates vs global styles vs navigation.
+
+**Media policy** (locked): Attachment posts are NEVER staged in changesets. Uploads go to the Media Library as normal and persist even if the changeset is discarded. Changesets stage only references: featured images (featured_media ID), site logo (custom_logo attachment ID), site icon (site_icon attachment ID), and content HTML/blocks containing attachment IDs. Document this clearly.
 
 ## Requirements
 
@@ -101,7 +103,7 @@ Category: `changesets` (label: "Changesets")
 | `changesets/create` | `{ title? }` → `{ changeset_id, uuid, preview_url, status }` |
 | `changesets/get` | changeset + list of staged entity summaries + **staged options/styles** (0.4.2) |
 | `changesets/list` | open/approved |
-| **`changesets/save`** | **Unified staging ability (v0.4.0)**<br>`type=content`: stage pages/posts/templates/parts/navigation/CPTs (`post_type`, `source_id?`, `title?`, `content?`, `slug?`, `theme?`)<br>`type=styles`: stage global styles or variation (`variation?`, `styles?`, `settings?`)<br>`type=setting`: stage site option (`key`, `value`) |
+| **`changesets/save`** | **Unified staging ability (v0.4.0, expanded 0.5.0)**<br>`type=content`: stage pages/posts/templates/parts/navigation/CPTs (`post_type`, `source_id?`, `title?`, `content?`, `slug?`, `theme?`, **`featured_media?`** *(0.5.0)*)<br>`type=styles`: stage global styles or variation (`variation?`, `styles?`, `settings?`)<br>`type=setting`: stage site option or theme_mod (`key`, `value`, `store?`) — **0.5.0**: site_icon, custom_logo |
 | `changesets/approve` | human approval gate |
 | `changesets/publish` | requires approved (for agents); applies all ops; **returns failed_items** (0.4.2) |
 | `changesets/discard` | **(0.4.2)** trash changeset and delete staged drafts; clears preview |
@@ -169,6 +171,38 @@ Category: `changesets` (label: "Changesets")
   "value": "My New Site Title"
 }
 ```
+
+**Stage site logo (0.5.0):**
+```json
+{
+  "changeset_id": 123,
+  "type": "setting",
+  "key": "custom_logo",
+  "value": 456
+}
+```
+(456 = attachment ID from Media Library; store auto-detected as theme_mod)
+
+**Stage site icon (0.5.0):**
+```json
+{
+  "changeset_id": 123,
+  "type": "setting",
+  "key": "site_icon",
+  "value": 789
+}
+```
+
+**Stage page with featured image (0.5.0):**
+```json
+{
+  "changeset_id": 123,
+  "type": "content",
+  "source_id": 5,
+  "featured_media": 101
+}
+```
+(101 = attachment ID; attachment remains live, only reference is staged)
 
 ## Permissions
 

@@ -3,7 +3,7 @@ Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.4.2
+Stable tag: 0.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,12 @@ Changesets introduces staging sessions where agents and humans accumulate site e
 **Workflow**: Agent stages edits → human previews live site with overlay → human approves → Publish Changeset applies all changes.
 
 The live site stays untouched until Publish. Preview shows exactly what visitors will see after publish.
+
+**v0.5.0** expands settings and media capabilities:
+- **Featured images**: Stage featured_media on pages/posts via `changesets/save` type=content
+- **Site logo & icon**: Stage custom_logo (theme_mod) and site_icon (option) via `changesets/save` type=setting
+- **Media policy**: Attachments never staged — uploads go to Media Library (persist on discard); only references (IDs) are staged
+- **Settings coverage**: blogname, blogdescription, show_on_front, page_on_front, page_for_posts, site_icon, custom_logo
 
 **v0.4.0** introduces unified `changesets/save` ability for full site staging:
 - **Content**: Pages, posts, templates, template parts, navigation, and custom post types
@@ -66,6 +72,16 @@ Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent acce
 You have access to a WordPress site. Before staging changes, verify Changesets and WordPress MCP Adapter are installed and active. If missing, ask permission to install them. Once active and connected: (1) create a changeset, (2) stage all changes using changesets/save (type: content/styles/setting), (3) give the human the preview URL and wait for approval, (4) after approval call changesets/approve then changesets/publish. Never edit live content directly.
 
 == Changelog ==
+
+= 0.5.0 =
+* New: Featured image support — stage `featured_media` or `thumbnail_id` (attachment ID) when saving content via `changesets/save` type=content.
+* New: Site logo support — stage `custom_logo` (theme_mod) via `changesets/save` type=setting.
+* New: Site icon support — stage `site_icon` (option) via `changesets/save` type=setting.
+* New: Settings storage distinguishes options vs theme_mods — pass optional `store` field or rely on auto-detection for known keys (custom_logo is theme_mod).
+* Change: `cs_stage_option` now accepts optional `store` parameter ('option' or 'theme_mod') with backward compatibility for old calls.
+* Change: Publish Changeset remaps attachment IDs (site_icon, custom_logo) to final live IDs when they reference staged content.
+* Change: Preview filters added for `site_icon` (option) and `custom_logo` (theme_mod) during changeset preview.
+* Policy: Attachment posts are NEVER staged in changesets — uploads go to Media Library as normal (persist on discard); changesets stage only references (IDs in content/settings/featured images).
 
 = 0.4.2 =
 * Fix: Publish Changeset now correctly publishes new pages (source_id=0) by clearing staged markers before status change, preventing the staged-publish guard from blocking.
