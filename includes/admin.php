@@ -26,7 +26,7 @@ function dcp_render_changeset_bar() {
 	$exit_url = add_query_arg(
 		array(
 			'dcp_exit_preview' => '1',
-			'dcp_changeset'    => false,
+			'changeset'        => false,
 		)
 	);
 
