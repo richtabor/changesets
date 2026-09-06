@@ -37,13 +37,19 @@ The demo will:
 - The homepage now shows the **live** version with the original simpler copy
 - Return to preview mode from the admin to see the staged changes again
 
-### Approve and Publish
-- From the changeset screen, click **"Approve Changeset"** (human approval gate)
-- Then click **"Publish Changeset"** to apply all changes to the live site
-- The staged content is merged into live:
-  - Homepage gets the premium copy and button
-  - Contact Us page is created as a published page
-- The changeset closes and the staged drafts are cleaned up
+### Approve and Publish (via MCP)
+
+Draft Changes uses the WordPress **Abilities API** for approve and publish actions. In a real workflow with MCP Adapter installed, an agent would call:
+
+1. **`draft-changes/approve-changeset`** ability (human approval gate)
+2. **`draft-changes/publish-changeset`** ability to apply all changes to live
+
+This applies the staged content to the live site:
+- Homepage gets the premium copy and button
+- Contact Us page is created as a published page
+- The changeset closes and staged drafts are cleaned up
+
+**In Playground without MCP:** You can explore Preview mode vs live mode without publishing. The demo is designed to showcase the preview experience—the core value of Draft Changes is safely previewing changes before they go live.
 
 ## Important Note: Public Repository Required
 
