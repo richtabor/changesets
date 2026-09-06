@@ -223,7 +223,7 @@ function dcp_register_abilities() {
 		'draft-changes/publish-live',
 		array(
 			'label'               => __( 'Publish Live', 'draft-changes' ),
-			'description'         => __( 'Apply an approved proposal onto the live published post or page (same URL), save a native revision for undo, then permanently delete the proposal. Requires a human to have approved the proposal first (Approve in the editor). Does nothing if not approved. Prefer this after human review when asked to publish the proposal live.', 'draft-changes' ),
+			'description'         => __( 'Apply an approved proposal onto the live published post or page (same URL), save a native revision for undo, then permanently delete the proposal. Requires a human to have approved the proposal first via draft-changes/approve-proposal (or Approve in the editor). Fails with dcp_not_approved otherwise. Prefer this after human review when asked to publish the proposal live.', 'draft-changes' ),
 			'category'            => 'content-proposals',
 			'input_schema'        => array(
 				'type'                 => 'object',
@@ -381,6 +381,37 @@ function dcp_ability_get_proposal( $input ) {
  * @param array $input Input.
  * @return bool
  */
+
+/**
+ * @param array $input Input.
+ * @return bool
+ */
+function dcp_ability_can_approve_proposal( $input ) {
+	$proposal_id = isset( $input['proposal_id'] ) ? (int) $input['proposal_id'] : 0;
+	return $proposal_id && dcp_user_can_apply_proposal( $proposal_id );
+}
+
+/**
+ * Human approval gate for agent Publish Live.
+ *
+ * @param array $input Input.
+ * @return array|WP_Error
+ */
+function dcp_ability_approve_proposal( $input ) {
+	$proposal_id = (int) $input['proposal_id'];
+	$result      = dcp_approve_proposal( $proposal_id );
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
+
+	return array(
+		'proposal_id'    => $proposal_id,
+		'approved'       => true,
+		'source_post_id' => dcp_get_source_id( $proposal_id ),
+		'edit_url'       => get_edit_post_link( $proposal_id, 'raw' ),
+	);
+}
+
 function dcp_ability_can_publish_live( $input ) {
 	$proposal_id = isset( $input['proposal_id'] ) ? (int) $input['proposal_id'] : 0;
 	return $proposal_id && dcp_user_can_apply_proposal( $proposal_id );

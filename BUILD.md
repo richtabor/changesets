@@ -1,88 +1,129 @@
-# Draft Changes — build spec (v1)
+# Draft Changes — build spec (changeset)
 
-Lean WordPress plugin: agents propose edits to published posts/pages without touching live content. Humans review in Gutenberg and apply.
+Lean WordPress plugin: agents and humans accumulate unpublished site edits in a **Changeset**, preview them on the real site without touching live, then **Publish Changeset**.
+
+## Naming (locked)
+
+| Term | Meaning |
+|---|---|
+| **Changeset** | Top-level staging session (the product object) |
+| **Preview Changeset** | View the site with this changeset overlaid |
+| **Approve Changeset** | Human marks the changeset ready for publish |
+| **Publish Changeset** | Apply all ops in the changeset to live, then close it |
+| Op / entity draft | Internal: a staged clone of a page, template, nav, etc. — not user-facing jargon |
+
+Do **not** use “proposal”, “staging site”, or “Apply to live” as primary UX labels. Keep Ability/API names under `draft-changes/`.
 
 ## Product principle
 
 Don't give an agent permission to change production when you can give it permission to propose a change instead.
 
+Humans ask for **site outcomes** (“add Contact to the nav”, “warm up the colors”, “update About”). They should not need to know pages vs templates vs global styles vs navigation.
+
 ## Requirements
 
 - WordPress ≥ 6.9 (Abilities API in core)
-- Posts and Pages only in v1
-- One open proposal per source post
-- No settings dashboard
-- Demo with [MCP Adapter](https://github.com/WordPress/mcp-adapter) installed separately (not a dependency). WebMCP optional, same story.
+- Block theme entities preferred (FSE): pages/posts, `wp_template`, `wp_template_part`, `wp_global_styles`, `wp_navigation`
+- One **open** changeset per site for v1 (session bucket); expand later if needed
+- MCP Adapter installed separately (dogfood transport). Test as an MCP agent would — Abilities only, not SSH.
+- No giant dashboard
 
-## Content model
+## Architecture (WordPress-forward)
 
-Clone-as-draft (not native revisions):
+Inspired by Customizer **changesets** (`customize_changeset` + preview UUID), adapted to block-theme entities (which are already posts).
 
-1. `create-proposed-revision` clones a published post/page into a same-type `draft`
-2. Meta on proposal: `_dcp_source_id` → source post ID; `_dcp_is_proposal` = `1`
-3. Meta on source (optional): `_dcp_open_proposal_id` → enforce one-open rule
-4. Agent edits only the proposal draft
-5. Human **Apply to live** copies title/content/excerpt (+ featured image, categories, tags in v1) onto the source, creates a native revision of the source for undo, then trashes the proposal
-6. Block `publish` / public visibility of proposals (force draft/pending; no public URL)
+### 1. CPT `dcp_changeset`
 
-Native `post_type=revision` is history after Update — wrong tool for parallel drafts.
+- `post_title` = human label (“Add Contact”, “Home copy pass”)
+- Status: `draft` (open) → `pending` (approved) → published/closed via meta after Publish Changeset (or trash on discard)
+- Meta:
+  - `_dcp_changeset_uuid` — public preview token
+  - `_dcp_changeset_status` — `open` | `approved` | `published` | `discarded`
+  - `_dcp_approved_by`, `_dcp_approved_at` when approved
+
+### 2. Staged entity drafts (ops)
+
+Everything visitor-facing that is already a WP post type gets a **draft clone** tagged into the changeset:
+
+| Entity | post_type | Meta on clone |
+|---|---|---|
+| Page / post | `page` / `post` | `_dcp_changeset_id`, `_dcp_source_id`, `_dcp_is_staged` |
+| Template | `wp_template` | same |
+| Template part | `wp_template_part` | same |
+| Global styles | `wp_global_styles` | same |
+| Navigation | `wp_navigation` | same |
+
+v1 implement **page/post content** fully; scaffold hooks for the FSE types so Preview/Publish can grow without renaming.
+
+One open staged draft per source entity per changeset.
+
+### 3. Preview Changeset
+
+- Enter: `?dcp_changeset=<uuid>` **or** admin “Preview Changeset”
+- Set cookie `dcp_changeset=<uuid>` so clicks stay in preview
+- Admin bar banner: **Viewing changeset — Exit | Publish Changeset** (if approved / can publish)
+- Filters overlay staged drafts over live queries (content, later templates/styles/nav)
+- Hard rule: preview never writes to live entities
+
+### 4. Publish Changeset
+
+For each staged draft in the changeset:
+
+1. Native revision of live source (undo)
+2. Copy staged fields onto live source
+3. Permanently delete staged draft
+
+Then mark changeset `published` and clear preview cookie.
+
+**Approve Changeset** is required before agent **Publish Changeset** (human gate). Human may Publish Changeset from UI without a separate step if they are the publisher.
 
 ## Abilities (`draft-changes/`)
 
-Category: `content-proposals`
+Category: `content-proposals` (rename category label to “Changesets” in UI strings)
 
-| Ability | Who | Notes |
-|---|---|---|
-| `create-proposed-revision` | agent | `{ source_post_id }` → `{ proposal_id, source_post_id, edit_url, status }` |
-| `update-proposed-revision` | agent | `{ proposal_id, title?, content?, excerpt? }` |
-| `list-proposals` | agent | `{ source_post_id?, status? }` |
-| `get-proposal` | agent | proposal + source link + preview |
-| Apply to live | **human only** | Gutenberg sidebar / row action — not registered as a public Ability in v1 |
+| Ability | Notes |
+|---|---|
+| `create-changeset` | `{ title? }` → `{ changeset_id, uuid, preview_url, status }` |
+| `get-changeset` | changeset + list of staged entity summaries |
+| `list-changesets` | open/approved |
+| `stage-content` | `{ changeset_id, source_post_id }` — clone page/post into changeset (replaces old create-proposed-revision) |
+| `update-staged-content` | `{ staged_id, title?, content?, excerpt? }` |
+| `approve-changeset` | human approval gate |
+| `publish-changeset` | requires approved (for agents); applies all ops |
 
-Register with clear descriptions (agents read these). Use `meta.show_in_rest` / `meta.public` as appropriate for discovery. Annotate create/update as non-destructive (additive drafts).
+Keep backward-compatible aliases for a short transition if needed (`create-proposed-revision` → stages into current open changeset or creates one). Prefer clean changeset abilities for MCP dogfood.
 
 ## Permissions
 
-Propose-only Application Password / role:
-
-- Allow: `read`, `edit_posts`, `edit_pages` (as needed), optional `upload_files`
-- Deny: `publish_posts`, `edit_published_posts`, `delete_published_posts` (and page equivalents)
-- Custom caps: `create_content_proposals`, `edit_content_proposals`, `apply_content_proposals` (human)
-
-Every Ability `permission_callback` must verify caps **and** that writes target a proposal draft, never a published source.
+- Propose/stage: can edit drafts / create staged clones; cannot publish live sources
+- Approve / Publish Changeset: `apply_content_proposals` or publish caps on affected sources
 
 ## Human UI (minimal)
 
-- On published post editor: notice if an open proposal exists + link to open it
-- On proposal editor: banner “Proposal for: {title}” + **Apply to live** button
-- Posts/Pages list: filter or badge for proposals
+- Admin bar when previewing
+- Changeset edit screen: list of staged items, Preview Changeset, Approve Changeset, Publish Changeset
+- On staged page editor: banner “Part of changeset: {title}” + links
 
-No SEO score, no giant queue product. A badge + Apply is enough for MVP.
+## Out of scope (this spike)
 
-## Out of scope (v1)
+- Full Atomic duplicate staging environments
+- Multi-open changesets / branching UX
+- ACF / Yoast meta merge
+- Collaborative RTC
 
-- Custom fields / ACF / Yoast meta merge
-- Scheduling proposals
-- Multiple concurrent proposals per post
-- Block Notes / RTC collaborative suggestions (separate experiment)
-- Bundling MCP Adapter or WebMCP
+## Demo script (MCP — no SSH)
 
-## Demo script
+1. `create-changeset` “Home copy”
+2. `stage-content` for Home → `update-staged-content` (heading change)
+3. Open `preview_url` — see change; Exit — see live unchanged
+4. Human: Approve Changeset (ability or UI)
+5. `publish-changeset` — live updates; staged drafts gone
 
-1. Activate plugin on WP 6.9+ site; install MCP Adapter for agent transport
-2. From ChatGPT/Claude: “Simplify the homepage copy and make the CTA clearer, but don’t publish anything.”
-3. Agent discovers Ability → creates proposal → updates content
-4. Open proposal in Gutenberg → review → Apply to live
-5. Live URL updated; proposal trashed; native revision available for undo
+## Success criteria
 
-## Risks
-
-- Accidental public publish of the clone → must hard-block
-- Incomplete merge (template, parent, plugin meta) → document limits; expand later
-- Cap leakage if agent user is Editor → document propose-only setup
-- Preview/permalink confusion vs live URL
-- Exposing Apply as a public Ability would break the product principle
-
-## Public story (when ready)
-
-build useful primitive → expose Abilities → use myself → release to plugin directory → demonstrate → write about what it suggests for WordPress
+- [ ] CPT + uuid + open changeset works
+- [ ] Stage + update page content without changing live
+- [ ] Preview via URL param + cookie; admin bar; exit restores live view
+- [ ] Approve + Publish Changeset abilities work over MCP Adapter
+- [ ] Live URL only changes after Publish Changeset
+- [ ] BUILD.md matches shipping code
