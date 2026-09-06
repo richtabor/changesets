@@ -37,6 +37,21 @@ See [BUILD.md](BUILD.md) for ability details and [readme.txt](readme.txt) for co
 2. Create an Application Password (propose-only user without publish permissions recommended)
 3. Connect your MCP client to the site using the Application Password
 
+## What's new in 0.5.0
+
+**Media policy**: Attachment posts are never staged in changesets. Uploads go directly to the Media Library (persist on discard). Changesets stage only references: featured images (featured_media), site logo (custom_logo), site icon (site_icon), and content HTML/blocks containing attachment IDs.
+
+**Expanded settings**:
+- Site icon (option: `site_icon`)
+- Site logo (theme_mod: `custom_logo`)
+- Featured images on content saves (field: `featured_media` or `thumbnail_id`)
+
+**What stages**: Content (pages, posts, templates, parts, navigation, CPTs), global styles, style variations, and settings (site title, homepage, logo, icon). Media attachments remain live; only IDs are staged.
+
+**Storage model**: CPT bag + draft clones for post-like entities + JSON meta for options/styles. Not one Customizer JSON blob in post_content.
+
+See [BUILD.md](BUILD.md) for ability details and [readme.txt](readme.txt) for complete changelog.
+
 ## What's new in 0.4.2
 
 - Fix: Publish correctly promotes new pages to live status by clearing staged markers first

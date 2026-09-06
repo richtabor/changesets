@@ -348,6 +348,119 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 3. **Verify**: Status forced back to `draft`
 4. **Verify**: Staged draft never becomes a public URL
 
+## Critical Test Cases (v0.5.0+)
+
+### Site logo (custom_logo theme_mod)
+
+**Test**:
+1. Create changeset
+2. Upload an image to Media Library (or use existing attachment ID, e.g. 999)
+3. Stage site logo via `changesets/save`:
+   ```json
+   {"changeset_id": 123, "type": "setting", "key": "custom_logo", "value": 999}
+   ```
+4. Visit preview URL
+5. **Verify**:
+   - Site logo displays the staged attachment in header/navigation
+   - Live site (exit preview) still shows old logo
+6. Approve and publish changeset
+7. **Verify**:
+   - Live site displays new logo
+   - `get_theme_mod('custom_logo')` returns 999
+   - Attachment 999 remains in Media Library
+
+**Why this matters**: Theme_mods are stored separately from options; custom_logo must be auto-detected as theme_mod and applied correctly.
+
+### Site icon (site_icon option)
+
+**Test**:
+1. Create changeset
+2. Upload a square icon image (512×512 or similar) to Media Library (e.g. attachment ID 888)
+3. Stage site icon:
+   ```json
+   {"changeset_id": 123, "type": "setting", "key": "site_icon", "value": 888}
+   ```
+4. Visit preview URL
+5. **Verify**:
+   - Browser tab shows new favicon
+   - Admin bar icon updated
+   - Live site (exit preview) still shows old icon
+6. Approve and publish
+7. **Verify**:
+   - Live site shows new icon
+   - `get_option('site_icon')` returns 888
+   - Attachment 888 remains in Media Library
+
+### Featured image on new page
+
+**Test**:
+1. Create changeset
+2. Upload featured image to Media Library (e.g. ID 777)
+3. Create new page with featured image:
+   ```json
+   {
+     "changeset_id": 123,
+     "type": "content",
+     "post_type": "page",
+     "title": "About Us",
+     "content": "<!-- wp:paragraph --><p>About content</p><!-- /wp:paragraph -->",
+     "featured_media": 777
+   }
+   ```
+4. Visit preview URL `/about-us/?changeset=...`
+5. **Verify**:
+   - Page displays with featured image
+   - `get_post_thumbnail_id(staged_id)` returns 777
+6. Approve and publish
+7. **Verify**:
+   - Live page shows featured image
+   - `get_post_thumbnail_id(live_page_id)` returns 777
+   - Attachment 777 remains in Media Library
+
+### Featured image update on existing page
+
+**Test**:
+1. Create changeset
+2. Stage existing page with source_id (e.g. page 5)
+3. Upload new featured image (ID 666)
+4. Update featured image:
+   ```json
+   {"changeset_id": 123, "type": "content", "source_id": 5, "featured_media": 666}
+   ```
+5. Preview
+6. **Verify**: Staged version shows new featured image
+7. Publish
+8. **Verify**: Live page 5 now has featured_media = 666
+
+### Remove featured image
+
+**Test**:
+1. Create changeset
+2. Stage page that has a featured image
+3. Remove featured image:
+   ```json
+   {"changeset_id": 123, "type": "content", "source_id": 5, "featured_media": 0}
+   ```
+4. Preview
+5. **Verify**: No featured image on preview
+6. Publish
+7. **Verify**: Live page has no featured image
+
+### Discard keeps media (media policy regression)
+
+**Test**:
+1. Create changeset
+2. Upload image X (note its attachment ID)
+3. Stage page with featured_media = X
+4. Stage custom_logo = X
+5. Call `changesets/discard`
+6. **Verify**:
+   - Changeset trashed
+   - Staged page draft deleted
+   - Attachment X still exists in Media Library (not deleted)
+
+**Why this matters**: Media policy: attachments persist even when changesets are discarded; only references (IDs) are staged, not the attachment posts.
+
 ## Critical Test Cases (v0.4.2+)
 
 ### New page as homepage (publish + setting remap)
@@ -410,6 +523,9 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 - [ ] Stage global styles via `changesets/save` type=styles
 - [ ] Stage style variation via `changesets/save` type=styles
 - [ ] Stage settings via `changesets/save` type=setting
+- [ ] Stage site logo (custom_logo) via `changesets/save` type=setting (0.5.0+)
+- [ ] Stage site icon (site_icon) via `changesets/save` type=setting (0.5.0+)
+- [ ] Stage featured image via `changesets/save` type=content featured_media (0.5.0+)
 - [ ] Preview URL shows all staged changes
 - [ ] Admin bar appears in preview mode
 - [ ] Exit preview restores live view
@@ -418,7 +534,10 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets
 - [ ] Live content updated after publish
 - [ ] Live settings updated after publish
 - [ ] Live styles updated after publish
+- [ ] Live logo and icon updated after publish (0.5.0+)
+- [ ] Featured images applied after publish (0.5.0+)
 - [ ] Staged drafts deleted after publish
 - [ ] Native revision saved
 - [ ] Cannot publish un-approved changeset
 - [ ] Staged drafts blocked from public publish
+- [ ] Media uploads persist when changeset is discarded (0.5.0+)
