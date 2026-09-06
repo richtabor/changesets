@@ -1,9 +1,9 @@
-=== Draft Changes ===
+=== Changesets ===
 Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.2.20
+Stable tag: 0.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -11,27 +11,36 @@ Accumulate site edits in a staging Changeset, preview them on the live site with
 
 == Description ==
 
-Draft Changes introduces Changesets: staging sessions where agents and humans accumulate site edits before publishing.
+Changesets introduces staging sessions where agents and humans accumulate site edits before publishing.
 
 **Workflow**: Agent stages edits → human previews live site with overlay → human approves → Publish Changeset applies all changes.
 
 The live site stays untouched until Publish. Preview shows exactly what visitors will see after publish.
 
-Exposes Abilities (`draft-changes/create-changeset`, `stage-content`, `stage-global-styles`, `approve-changeset`, `publish-changeset`) so compatible agents can discover the workflow via the Abilities API.
+Exposes Abilities (`changesets/create`, `changesets/stage-page`, `changesets/approve`, `changesets/publish`) so compatible agents can discover the workflow via the Abilities API.
 
 Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent access.
 
 == Installation ==
 
-1. Install Draft Changes on WordPress 6.9+.
-2. Activate Draft Changes.
-3. Install MCP Adapter plugin for agent transport.
-4. Configure Application Password for HTTP authentication.
-5. Use a propose-only Application Password user without `publish_posts` / `edit_published_posts` capabilities.
-
-**For agents**: Share this repository URL with your agent and ask it to install Draft Changes and MCP Adapter on your WordPress site. The agent can then use Draft Changes abilities to stage content, preview via `?changeset=<UUID>` URLs, and publish after your approval.
+1. Install on WordPress 6.9+.
+2. Activate Changesets.
+3. (Optional) Install MCP Adapter for agent transport.
+4. Use a propose-only Application Password user without `publish_posts` / `edit_published_posts`.
 
 == Changelog ==
+
+= 0.3.0 =
+* Breaking: Product rename to Changesets (plugin name, text domain, user-facing strings).
+* Breaking: Ability namespace changed from `draft-changes/*` to `changesets/*`.
+* Breaking: CPT renamed from `dcp_changeset` to `changeset`.
+* Breaking: Function prefixes changed from `dcp_*` to `cs_*`.
+* Breaking: Post meta keys changed from `_dcp_*` to `_changeset_*`.
+* Breaking: Exit query param changed from `dcp_exit_preview` to `exit_changeset`.
+* Breaking: Simplified to 6 lean abilities: create, get, list, stage-page, approve, publish.
+* Change: `changesets/stage-page` unifies stage-content, create-staged-page, and update-staged-content.
+* Removed: update-changeset, stage-setting, stage-global-styles, stage-style-variation abilities.
+* Note: No backward compatibility provided (unreleased experiment).
 
 = 0.2.20 =
 * Breaking: Remove legacy `dcp_changeset` query parameter and cookie support (no longer accepted).

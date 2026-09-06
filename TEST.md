@@ -1,11 +1,11 @@
-# Draft Changes — Testing Guide
+# Changesets — Testing Guide
 
 Manual and MCP smoke tests for the Changeset architecture.
 
 ## Prerequisites
 
 - WordPress ≥ 6.9 with Abilities API
-- Draft Changes plugin active (v0.2.0+)
+- Changesets plugin active (v0.2.0+)
 - At least one published page or post
 - User with `apply_content_proposals` capability (Administrator or Editor)
 - MCP Adapter installed for MCP tests
@@ -60,7 +60,7 @@ Ensure MCP Adapter is connected and authenticated to your WordPress site.
 
 ```bash
 # 1. Create changeset
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/create-changeset \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/create \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"title":"Home copy pass"}'
@@ -74,7 +74,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/create-
 # }
 
 # 2. Stage content (clone published post into changeset)
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/stage-content \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage-page \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"changeset_id":123,"source_post_id":5}'
@@ -87,7 +87,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/stage-c
 # }
 
 # 3. Update staged content
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/update-staged-content \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage-page \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"staged_id":456,"title":"Updated Heading","content":"<!-- wp:paragraph --><p>New content</p><!-- /wp:paragraph -->"}'
@@ -103,7 +103,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/update-
 # Verify: See staged changes, admin bar shows preview notice
 
 # 5. Get changeset with staged items
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/get-changeset \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/get \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"changeset_id":123}'
@@ -119,7 +119,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/get-cha
 # }
 
 # 6. Approve changeset (human gate)
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/approve-changeset \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/approve \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"changeset_id":123}'
@@ -132,7 +132,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/approve
 # }
 
 # 7. Publish changeset (requires approved)
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/publish-changeset \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/publish \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"changeset_id":123}'
@@ -156,7 +156,7 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/publish
 ## List Changesets
 
 ```bash
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/list-changesets \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/list \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"status":"open","per_page":10}'
@@ -183,14 +183,14 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/list-ch
 
 ```bash
 # Try publishing un-approved changeset
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/publish-changeset \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/publish \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"changeset_id":123}'
 
 # Expected error:
 # {
-#   "code": "dcp_not_approved",
+#   "code": "cs_not_approved",
 #   "message": "A human must Approve Changeset before Publish Changeset.",
 #   "data": { ... }
 # }
@@ -200,14 +200,14 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/publish
 
 ```bash
 # Try staging same source twice in same changeset
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/stage-content \
+curl -X POST https://your-site.com/wp-json/wp/v2/abilities/changesets/changesets/stage-page \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"changeset_id":123,"source_post_id":5}'
 
 # Expected error:
 # {
-#   "code": "dcp_already_staged",
+#   "code": "cs_already_staged",
 #   "message": "This content is already staged in this changeset.",
 #   "data": { "staged_id": 456 }
 # }

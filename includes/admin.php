@@ -12,26 +12,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Render the Changeset bar while previewing (logged-in or not).
  */
-function dcp_render_changeset_bar() {
-	$uuid = dcp_get_active_preview_uuid();
+function cs_render_changeset_bar() {
+	$uuid = cs_get_active_preview_uuid();
 	if ( ! $uuid ) {
 		return;
 	}
 
-	$changeset = dcp_get_changeset( $uuid );
+	$changeset = cs_get_changeset( $uuid );
 	if ( ! $changeset ) {
 		return;
 	}
 
 	$exit_url = add_query_arg(
 		array(
-			'dcp_exit_preview' => '1',
+			'cs_exit_preview' => '1',
 			'changeset'        => false,
 		)
 	);
 
 	$title  = get_the_title( $changeset );
-	$status = dcp_get_changeset_status( $changeset->ID );
+	$status = cs_get_changeset_status( $changeset->ID );
 	?>
 	<style id="dcp-changeset-bar-styles">
 		/* Changeset preview bar — matches WP admin bar behavior (fixed desktop, scrolls on mobile). */
@@ -152,16 +152,16 @@ function dcp_render_changeset_bar() {
 			}
 		}
 	</style>
-	<div class="dcp-changeset-bar" role="banner" aria-label="<?php echo esc_attr__( 'Changeset preview', 'draft-changes' ); ?>">
+	<div class="dcp-changeset-bar" role="banner" aria-label="<?php echo esc_attr__( 'Changeset preview', 'changesets' ); ?>">
 		<div class="dcp-changeset-bar__label">
-			<span class="dcp-changeset-bar__kicker"><?php echo esc_html__( 'Changeset', 'draft-changes' ); ?></span>
+			<span class="dcp-changeset-bar__kicker"><?php echo esc_html__( 'Changeset', 'changesets' ); ?></span>
 			<span class="dcp-changeset-bar__title"><?php echo esc_html( $title ); ?></span>
 			<?php if ( $status && 'open' !== $status ) : ?>
 				<span class="dcp-changeset-bar__status"><?php echo esc_html( $status ); ?></span>
 			<?php endif; ?>
 		</div>
 		<a class="dcp-changeset-bar__exit" href="<?php echo esc_url( $exit_url ); ?>">
-			<?php echo esc_html__( 'Exit Changeset', 'draft-changes' ); ?>
+			<?php echo esc_html__( 'Exit Changeset', 'changesets' ); ?>
 		</a>
 	</div>
 	<script>
@@ -172,17 +172,17 @@ function dcp_render_changeset_bar() {
 	</script>
 	<?php
 }
-add_action( 'wp_body_open', 'dcp_render_changeset_bar', 1 );
-add_action( 'wp_footer', 'dcp_render_changeset_bar_footer_fallback', 999 );
+add_action( 'wp_body_open', 'cs_render_changeset_bar', 1 );
+add_action( 'wp_footer', 'cs_render_changeset_bar_footer_fallback', 999 );
 
 /**
  * Fallback if the theme never calls wp_body_open.
  */
-function dcp_render_changeset_bar_footer_fallback() {
+function cs_render_changeset_bar_footer_fallback() {
 	if ( did_action( 'wp_body_open' ) ) {
 		return;
 	}
-	dcp_render_changeset_bar();
+	cs_render_changeset_bar();
 }
 
 /**
@@ -192,27 +192,27 @@ function dcp_render_changeset_bar_footer_fallback() {
  * @param WP_Post $post    Post.
  * @return array
  */
-function dcp_changeset_row_actions( $actions, $post ) {
-	if ( ! $post || 'dcp_changeset' !== $post->post_type ) {
+function cs_changeset_row_actions( $actions, $post ) {
+	if ( ! $post || 'cs_changeset' !== $post->post_type ) {
 		return $actions;
 	}
 
 	$trash  = isset( $actions['trash'] ) ? array( 'trash' => $actions['trash'] ) : array();
-	$status = dcp_get_changeset_status( $post->ID );
-	$url    = dcp_get_preview_url( $post->ID );
+	$status = cs_get_changeset_status( $post->ID );
+	$url    = cs_get_preview_url( $post->ID );
 
 	$out = array();
 	if ( $url && in_array( $status, array( 'open', 'approved' ), true ) ) {
-		$out['dcp_preview'] = sprintf(
+		$out['cs_preview'] = sprintf(
 			'<a href="%s">%s</a>',
 			esc_url( $url ),
-			esc_html__( 'Preview Changeset', 'draft-changes' )
+			esc_html__( 'Preview Changeset', 'changesets' )
 		);
 	}
 
 	return $out + $trash;
 }
-add_filter( 'post_row_actions', 'dcp_changeset_row_actions', 10, 2 );
+add_filter( 'post_row_actions', 'cs_changeset_row_actions', 10, 2 );
 
 /**
  * Point list title / edit link at Preview for open changesets.
@@ -222,34 +222,34 @@ add_filter( 'post_row_actions', 'dcp_changeset_row_actions', 10, 2 );
  * @param string      $context Context.
  * @return string
  */
-function dcp_changeset_edit_link_to_preview( $url, $post_id, $context = 'display' ) {
+function cs_changeset_edit_link_to_preview( $url, $post_id, $context = 'display' ) {
 	$post = get_post( $post_id );
-	if ( ! $post || 'dcp_changeset' !== $post->post_type ) {
+	if ( ! $post || 'cs_changeset' !== $post->post_type ) {
 		return $url;
 	}
-	$status  = dcp_get_changeset_status( $post->ID );
-	$preview = dcp_get_preview_url( $post->ID );
+	$status  = cs_get_changeset_status( $post->ID );
+	$preview = cs_get_preview_url( $post->ID );
 	if ( $preview && in_array( $status, array( 'open', 'approved' ), true ) ) {
 		return $preview;
 	}
 	return $url;
 }
-add_filter( 'get_edit_post_link', 'dcp_changeset_edit_link_to_preview', 10, 3 );
+add_filter( 'get_edit_post_link', 'cs_changeset_edit_link_to_preview', 10, 3 );
 
 /**
  * Hide Quick Edit on the Changesets list.
  */
-function dcp_disable_changeset_quick_edit() {
+function cs_disable_changeset_quick_edit() {
 	$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-	if ( ! $screen || 'edit-dcp_changeset' !== $screen->id ) {
+	if ( ! $screen || 'edit-cs_changeset' !== $screen->id ) {
 		return;
 	}
 	wp_add_inline_style(
 		'common',
-		'.post-type-dcp_changeset .row-actions .inline, .post-type-dcp_changeset button.editinline { display: none !important; }'
+		'.post-type-cs_changeset .row-actions .inline, .post-type-cs_changeset button.editinline { display: none !important; }'
 	);
 }
-add_action( 'admin_enqueue_scripts', 'dcp_disable_changeset_quick_edit' );
+add_action( 'admin_enqueue_scripts', 'cs_disable_changeset_quick_edit' );
 
 /**
  * Mark preview sessions on <html> for admin-bar-like offset.
@@ -257,20 +257,20 @@ add_action( 'admin_enqueue_scripts', 'dcp_disable_changeset_quick_edit' );
  * @param array $classes Classes.
  * @return array
  */
-function dcp_previewing_admin_body_class( $classes ) {
-	if ( dcp_get_active_preview_uuid() && dcp_get_changeset( dcp_get_active_preview_uuid() ) ) {
+function cs_previewing_admin_body_class( $classes ) {
+	if ( cs_get_active_preview_uuid() && cs_get_changeset( cs_get_active_preview_uuid() ) ) {
 		$classes[] = 'dcp-previewing';
 	}
 	return $classes;
 }
-add_filter( 'body_class', 'dcp_previewing_admin_body_class' );
+add_filter( 'body_class', 'cs_previewing_admin_body_class' );
 
 /**
  * @param string $output Language attributes.
  * @return string
  */
-function dcp_previewing_html_class( $output ) {
-	if ( dcp_get_active_preview_uuid() && dcp_get_changeset( dcp_get_active_preview_uuid() ) ) {
+function cs_previewing_html_class( $output ) {
+	if ( cs_get_active_preview_uuid() && cs_get_changeset( cs_get_active_preview_uuid() ) ) {
 		if ( false !== strpos( $output, 'class="' ) ) {
 			$output = str_replace( 'class="', 'class="dcp-previewing ', $output );
 		} else {
@@ -279,4 +279,4 @@ function dcp_previewing_html_class( $output ) {
 	}
 	return $output;
 }
-add_filter( 'language_attributes', 'dcp_previewing_html_class' );
+add_filter( 'language_attributes', 'cs_previewing_html_class' );
