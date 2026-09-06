@@ -26,7 +26,7 @@ Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent acce
 **One-Click Playground Demo**:
 https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/richtabor/draft-changes/main/blueprint.json
 
-**Human Preview Path**: Open the blueprint, go to the Changesets admin list, click the demo changeset "Home Copy Update", then click Preview Changeset to see staged changes overlaid on the live site. The admin bar shows Exit and Publish links. Exit returns you to the live site — staged changes haven't touched production. The live site stays frozen until you Publish Changeset.
+**Human Preview Path**: Open the blueprint, go to the Changesets admin list, click the demo changeset "Home Copy Update", then click Preview Changeset to see staged changes overlaid on the live site. The admin bar shows Exit Changeset. Exit returns you to the live site — staged changes haven't touched production. The live site stays frozen until you Publish Changeset.
 
 **Agent Workflow Notes**: Changesets list → Preview; Exit; live untouched; Approve/Publish are abilities not admin buttons.
 

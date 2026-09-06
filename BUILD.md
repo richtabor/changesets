@@ -32,13 +32,13 @@ Humans ask for **site outcomes** (“add Contact to the nav”, “warm up the c
 
 Inspired by Customizer **changesets** (`customize_changeset` + preview UUID), adapted to block-theme entities (which are already posts).
 
-### 1. CPT `changeset`
+### 1. CPT `dcp_changeset`
 
 - `post_title` = human label (“Add Contact”, “Home copy pass”)
 - Status: `draft` (open) → `pending` (approved) → published/closed via meta after Publish Changeset (or trash on discard)
 - Meta:
-  - `_changeset_uuid` — public preview token
-  - `_changeset_status` — `open` | `approved` | `published` | `discarded`
+  - `_dcp_changeset_uuid` — public preview token
+  - `_dcp_changeset_status` — `open` | `approved` | `published` | `discarded`
   - `_dcp_approved_by`, `_dcp_approved_at` when approved
 
 ### 2. Staged entity drafts (ops)
@@ -47,7 +47,7 @@ Everything visitor-facing that is already a WP post type gets a **draft clone** 
 
 | Entity | post_type | Meta on clone |
 |---|---|---|
-| Page / post | `page` / `post` | `_changeset_id`, `_dcp_source_id`, `_dcp_is_staged` |
+| Page / post | `page` / `post` | `_dcp_changeset_id`, `_dcp_source_id`, `_dcp_is_staged` |
 | Template | `wp_template` | same |
 | Template part | `wp_template_part` | same |
 | Global styles | `wp_global_styles` | same |
