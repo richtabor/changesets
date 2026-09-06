@@ -220,21 +220,6 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/stage-c
 3. **Verify**: Status forced back to `draft`
 4. **Verify**: Staged draft never becomes a public URL
 
-## Backward Compatibility (Legacy Proposal API)
-
-The old proposal abilities still work and map onto the open changeset:
-
-```bash
-# Old: create-proposed-revision
-curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/create-proposed-revision \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"source_post_id":5}'
-
-# Still works — creates proposal using old system
-```
-
-**Note**: The new changeset API is preferred. Legacy proposal API is kept for transition.
 
 ## Success Checklist
 
@@ -251,4 +236,3 @@ curl -X POST https://your-site.com/wp-json/wp/v2/abilities/draft-changes/create-
 - [ ] Native revision saved
 - [ ] Cannot publish un-approved changeset
 - [ ] Staged drafts blocked from public publish
-- [ ] Legacy proposal API still functional

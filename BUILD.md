@@ -86,17 +86,20 @@ Category: `content-proposals` (rename category label to “Changesets” in UI s
 | `create-changeset` | `{ title? }` → `{ changeset_id, uuid, preview_url, status }` |
 | `get-changeset` | changeset + list of staged entity summaries |
 | `list-changesets` | open/approved |
-| `stage-content` | `{ changeset_id, source_post_id }` — clone page/post into changeset (replaces old create-proposed-revision) |
+| `stage-content` | `{ changeset_id, source_post_id }` — clone page/post into changeset |
+| `create-staged-page` | `{ changeset_id, title, content?, slug? }` — brand new page in changeset |
 | `update-staged-content` | `{ staged_id, title?, content?, excerpt? }` |
+| `stage-setting` | `{ changeset_id, key, value }` — stage options (homepage, site title, etc.) |
+| `stage-global-styles` | `{ changeset_id, settings?, styles? }` — stage theme.json edits |
+| `stage-style-variation` | `{ changeset_id, variation }` — apply theme style variation |
 | `approve-changeset` | human approval gate |
 | `publish-changeset` | requires approved (for agents); applies all ops |
 
-Keep backward-compatible aliases for a short transition if needed (`create-proposed-revision` → stages into current open changeset or creates one). Prefer clean changeset abilities for MCP dogfood.
-
 ## Permissions
 
-- Propose/stage: can edit drafts / create staged clones; cannot publish live sources
-- Approve / Publish Changeset: `apply_content_proposals` or publish caps on affected sources
+- Stage content: `manage_changesets` capability (Administrator / Editor)
+- Approve Changeset: `approve_changesets` capability
+- Publish Changeset: `publish_changesets` capability
 
 ## Human UI (minimal)
 

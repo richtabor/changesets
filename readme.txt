@@ -3,23 +3,23 @@ Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.2.17
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Propose edits to published posts and pages without changing the live version. Built for humans and agents (WordPress Abilities API).
+Accumulate site edits in a staging Changeset, preview them on the live site without touching production, then Publish Changeset after human approval. Built for AI agents and humans using the WordPress Abilities API.
 
 == Description ==
 
-Draft Changes gives WordPress a middle permission state:
+Draft Changes introduces Changesets: staging sessions where agents and humans accumulate site edits before publishing.
 
-Agent proposes → human reviews → human applies.
+**Workflow**: Agent stages edits → human previews live site with overlay → human approves → Publish Changeset applies all changes.
 
-When an agent (or a person) needs to update a live page, the plugin creates a draft proposal linked to the published post. The live URL stays unchanged until someone reviews the proposal in the block editor and clicks **Apply to live**.
+The live site stays untouched until Publish. Preview shows exactly what visitors will see after publish.
 
-Exposes Abilities (`draft-changes/create-proposed-revision`, `update-proposed-revision`, `list-proposals`, `get-proposal`) so compatible agents can discover the workflow. Publishing remains human-only.
+Exposes Abilities (`draft-changes/create-changeset`, `stage-content`, `stage-global-styles`, `approve-changeset`, `publish-changeset`) so compatible agents can discover the workflow via the Abilities API.
 
-Pair with the WordPress MCP Adapter (separate plugin) if you want desktop/API agents to call these Abilities. WebMCP is optional for browser agents.
+Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent access.
 
 == Installation ==
 
@@ -30,5 +30,9 @@ Pair with the WordPress MCP Adapter (separate plugin) if you want desktop/API ag
 
 == Changelog ==
 
-= 0.1.0 =
-* Initial scaffold: clone-as-draft proposals, Abilities, Apply to live, publish guard.
+= 0.2.17 =
+* Changeset architecture: staging sessions for site edits.
+* Stage content, global styles, style variations, settings.
+* Preview overlay on live site with admin bar.
+* Approve and Publish Changeset workflow.
+* Abilities API for agent integration.
