@@ -148,7 +148,7 @@ add_action( 'admin_notices', 'dcp_applied_notice' );
 
 
 /**
- * Block editor: relabel Publish → Publish live on proposals.
+ * Block editor: relabel Publish → Publish Live on proposals.
  */
 function dcp_enqueue_editor_assets() {
 	$post_id = isset( $_GET['post'] ) ? (int) $_GET['post'] : 0;

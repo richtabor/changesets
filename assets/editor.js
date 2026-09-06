@@ -21,9 +21,9 @@
 			'.editor-post-publish-button, .editor-post-publish-panel__toggle, .editor-post-publish-button__button'
 		);
 		nodes.forEach( function ( el ) {
-			if ( el && el.textContent && el.textContent.indexOf( 'Publish live' ) === -1 ) {
+			if ( el && el.textContent && el.textContent.indexOf( 'Publish Live' ) === -1 ) {
 				if ( /Publish|Update|Submit/.test( el.textContent ) ) {
-					el.textContent = el.textContent.replace( /Publish(…|\.\.\.)?|Update|Submit for review/i, 'Publish live' );
+					el.textContent = el.textContent.replace( /Publish(…|\.\.\.)?|Update|Submit for review/i, 'Publish Live' );
 				}
 			}
 		} );
