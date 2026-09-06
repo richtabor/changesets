@@ -260,27 +260,76 @@ function dcp_list_proposals( $args = array() ) {
 }
 
 /**
- * Hard-block public publish of proposals.
+ * Publishing a proposal means Apply to live (merge onto the source URL).
  *
- * @param string $new_status New status.
- * @param string $old_status Old status.
- * @param WP_Post $post Post object.
+ * @param string  $new_status New status.
+ * @param string  $old_status Old status.
+ * @param WP_Post $post       Post object.
  */
-function dcp_block_proposal_publish( $new_status, $old_status, $post ) {
-	if ( 'publish' !== $new_status ) {
+function dcp_on_proposal_publish( $new_status, $old_status, $post ) {
+	if ( 'publish' !== $new_status || 'publish' === $old_status ) {
 		return;
 	}
 	if ( ! dcp_is_proposal( $post->ID ) ) {
 		return;
 	}
-	// Revert to draft; Apply is the only path to affect live content.
-	remove_action( 'transition_post_status', 'dcp_block_proposal_publish', 10 );
+	if ( ! empty( $GLOBALS['dcp_applying_proposal'] ) ) {
+		return;
+	}
+
+	$GLOBALS['dcp_applying_proposal'] = true;
+	remove_action( 'transition_post_status', 'dcp_on_proposal_publish', 10 );
+
+	// Never leave the proposal as a public URL — apply merges onto the source.
 	wp_update_post(
 		array(
 			'ID'          => $post->ID,
 			'post_status' => 'draft',
 		)
 	);
-	add_action( 'transition_post_status', 'dcp_block_proposal_publish', 10, 3 );
+
+	$result = dcp_apply_proposal( $post->ID );
+
+	add_action( 'transition_post_status', 'dcp_on_proposal_publish', 10, 3 );
+	$GLOBALS['dcp_applying_proposal'] = false;
+
+	if ( is_wp_error( $result ) ) {
+		return;
+	}
+
+	$redirect = get_edit_post_link( $result['source_post_id'], 'raw' );
+	$redirect = add_query_arg( 'dcp_applied', '1', $redirect );
+
+	if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+		$GLOBALS['dcp_apply_redirect'] = $redirect;
+		return;
+	}
+
+	if ( is_admin() && ! wp_doing_ajax() ) {
+		wp_safe_redirect( $redirect );
+		exit;
+	}
 }
-add_action( 'transition_post_status', 'dcp_block_proposal_publish', 10, 3 );
+add_action( 'transition_post_status', 'dcp_on_proposal_publish', 10, 3 );
+
+/**
+ * After Gutenberg publishes a proposal, point the client at the live source.
+ *
+ * @param WP_REST_Response $response Response.
+ * @return WP_REST_Response
+ */
+function dcp_rest_apply_redirect( $response ) {
+	if ( empty( $GLOBALS['dcp_apply_redirect'] ) || ! ( $response instanceof WP_REST_Response ) ) {
+		return $response;
+	}
+	$response->header( 'X-DCP-Redirect', esc_url_raw( $GLOBALS['dcp_apply_redirect'] ) );
+	$data = $response->get_data();
+	if ( is_array( $data ) ) {
+		$data['dcp_applied']           = true;
+		$data['dcp_redirect']          = $GLOBALS['dcp_apply_redirect'];
+		$data['dcp_source_edit_link']  = $GLOBALS['dcp_apply_redirect'];
+		$response->set_data( $data );
+	}
+	return $response;
+}
+add_filter( 'rest_post_dispatch', 'dcp_rest_apply_redirect' );

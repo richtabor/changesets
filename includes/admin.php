@@ -145,3 +145,37 @@ function dcp_applied_notice() {
 	echo '</p></div>';
 }
 add_action( 'admin_notices', 'dcp_applied_notice' );
+
+
+/**
+ * Block editor: relabel Publish → Publish live on proposals.
+ */
+function dcp_enqueue_editor_assets() {
+	$post_id = isset( $_GET['post'] ) ? (int) $_GET['post'] : 0;
+	if ( ! $post_id || ! dcp_is_proposal( $post_id ) ) {
+		return;
+	}
+
+	$source_id   = dcp_get_source_id( $post_id );
+	$source_edit = $source_id ? get_edit_post_link( $source_id, 'raw' ) : '';
+	$source_edit = $source_edit ? add_query_arg( 'dcp_applied', '1', $source_edit ) : '';
+
+	wp_enqueue_script(
+		'dcp-editor',
+		DCP_URL . 'assets/editor.js',
+		array( 'wp-data', 'wp-dom-ready', 'wp-editor' ),
+		DCP_VERSION,
+		true
+	);
+	wp_localize_script(
+		'dcp-editor',
+		'dcpEditor',
+		array(
+			'isProposal'    => true,
+			'sourceEditUrl' => $source_edit,
+			'proposalId'    => $post_id,
+			'sourceId'      => $source_id,
+		)
+	);
+}
+add_action( 'enqueue_block_editor_assets', 'dcp_enqueue_editor_assets' );
