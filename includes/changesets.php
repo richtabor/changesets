@@ -8,11 +8,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Register CPT cs_changeset.
+ * Register CPT changeset.
  */
 function cs_register_changeset_cpt() {
 	register_post_type(
-		'cs_changeset',
+		'changeset',
 		array(
 			'labels'              => array(
 				'name'               => __( 'Changesets', 'changesets' ),
@@ -51,12 +51,12 @@ add_action( 'init', 'cs_register_changeset_cpt' );
 function cs_get_open_changeset( $title = null ) {
 	$existing = get_posts(
 		array(
-			'post_type'      => 'cs_changeset',
+			'post_type'      => 'changeset',
 			'post_status'    => 'draft',
 			'posts_per_page' => 1,
 			'meta_query'     => array(
 				array(
-					'key'   => '_changeset_changeset_status',
+					'key'   => '_changeset_status',
 					'value' => 'open',
 				),
 			),
@@ -89,7 +89,7 @@ function cs_create_changeset( $title = null ) {
 
 	$changeset_id = wp_insert_post(
 		array(
-			'post_type'   => 'cs_changeset',
+			'post_type'   => 'changeset',
 			'post_status' => 'draft',
 			'post_title'  => $title,
 		),
@@ -101,8 +101,8 @@ function cs_create_changeset( $title = null ) {
 	}
 
 	$uuid = wp_generate_uuid4();
-	update_post_meta( $changeset_id, '_changeset_changeset_uuid', $uuid );
-	update_post_meta( $changeset_id, '_changeset_changeset_status', 'open' );
+	update_post_meta( $changeset_id, '_changeset_uuid', $uuid );
+	update_post_meta( $changeset_id, '_changeset_status', 'open' );
 
 	return $changeset_id;
 }
@@ -146,7 +146,7 @@ function cs_update_changeset_title( $changeset_id, $title ) {
 function cs_get_changeset( $changeset_id_or_uuid ) {
 	if ( is_numeric( $changeset_id_or_uuid ) ) {
 		$post = get_post( (int) $changeset_id_or_uuid );
-		if ( $post && 'cs_changeset' === $post->post_type ) {
+		if ( $post && 'changeset' === $post->post_type ) {
 			return $post;
 		}
 		return null;
@@ -154,12 +154,12 @@ function cs_get_changeset( $changeset_id_or_uuid ) {
 
 	$changesets = get_posts(
 		array(
-			'post_type'      => 'cs_changeset',
+			'post_type'      => 'changeset',
 			'post_status'    => 'any',
 			'posts_per_page' => 1,
 			'meta_query'     => array(
 				array(
-					'key'   => '_changeset_changeset_uuid',
+					'key'   => '_changeset_uuid',
 					'value' => $changeset_id_or_uuid,
 				),
 			),
@@ -176,7 +176,7 @@ function cs_get_changeset( $changeset_id_or_uuid ) {
  * @return string
  */
 function cs_get_changeset_uuid( $changeset_id ) {
-	return get_post_meta( (int) $changeset_id, '_changeset_changeset_uuid', true );
+	return get_post_meta( (int) $changeset_id, '_changeset_uuid', true );
 }
 
 /**
@@ -213,7 +213,7 @@ function cs_is_stageable_post_type( $post_type ) {
  * @return string open|approved|published|discarded
  */
 function cs_get_changeset_status( $changeset_id ) {
-	$status = get_post_meta( (int) $changeset_id, '_changeset_changeset_status', true );
+	$status = get_post_meta( (int) $changeset_id, '_changeset_status', true );
 	return $status ? $status : 'open';
 }
 
@@ -243,7 +243,7 @@ function cs_approve_changeset( $changeset_id ) {
 		return new WP_Error( 'cs_forbidden', __( 'You cannot approve this changeset.', 'changesets' ) );
 	}
 
-	update_post_meta( $changeset_id, '_changeset_changeset_status', 'approved' );
+	update_post_meta( $changeset_id, '_changeset_status', 'approved' );
 	update_post_meta( $changeset_id, '_changeset_approved_by', get_current_user_id() );
 	update_post_meta( $changeset_id, '_changeset_approved_at', gmdate( 'c' ) );
 	wp_update_post( array( 'ID' => $changeset_id, 'post_status' => 'pending' ) );
@@ -278,7 +278,7 @@ function cs_get_staged_source_id( $staged_id ) {
  * @return int
  */
 function cs_get_staged_changeset_id( $staged_id ) {
-	return (int) get_post_meta( (int) $staged_id, '_changeset_changeset_id', true );
+	return (int) get_post_meta( (int) $staged_id, '_changeset_id', true );
 }
 
 /**
@@ -346,7 +346,7 @@ function cs_stage_content( $changeset_id, $source_id, $post_type = '' ) {
 
 	update_post_meta( $staged_id, '_changeset_is_staged', 1 );
 	update_post_meta( $staged_id, CS_META_SOURCE, $source_id );
-	update_post_meta( $staged_id, '_changeset_changeset_id', $changeset_id );
+	update_post_meta( $staged_id, '_changeset_id', $changeset_id );
 
 	$thumb = get_post_thumbnail_id( $source_id );
 	if ( $thumb ) {
@@ -653,7 +653,7 @@ function cs_create_staged_content( $changeset_id, $post_type, $title = '', $cont
 	}
 
 	update_post_meta( $staged_id, '_changeset_is_staged', 1 );
-	update_post_meta( $staged_id, '_changeset_changeset_id', $changeset_id );
+	update_post_meta( $staged_id, '_changeset_id', $changeset_id );
 	update_post_meta( $staged_id, CS_META_SOURCE, 0 );
 
 	// For templates, store theme.
@@ -695,7 +695,7 @@ function cs_get_staged_draft_for_source( $changeset_id, $source_id ) {
 			'suppress_filters' => true,
 			'meta_query'       => array(
 				array(
-					'key'   => '_changeset_changeset_id',
+					'key'   => '_changeset_id',
 					'value' => (int) $changeset_id,
 				),
 				array(
@@ -728,7 +728,7 @@ function cs_get_staged_drafts( $changeset_id ) {
 			'posts_per_page' => -1,
 			'meta_query'     => array(
 				array(
-					'key'   => '_changeset_changeset_id',
+					'key'   => '_changeset_id',
 					'value' => (int) $changeset_id,
 				),
 				array(
@@ -859,7 +859,7 @@ function cs_publish_changeset( $changeset_id ) {
 				true
 			);
 			delete_post_meta( $staged_id, '_changeset_is_staged' );
-			delete_post_meta( $staged_id, '_changeset_changeset_id' );
+			delete_post_meta( $staged_id, '_changeset_id' );
 			delete_post_meta( $staged_id, CS_META_SOURCE );
 			$source_ids[] = $staged_id;
 			$published_new++;
@@ -906,7 +906,7 @@ function cs_publish_changeset( $changeset_id ) {
 		delete_post_meta( $changeset_id, '_changeset_staged_style_variation_title' );
 	}
 
-	update_post_meta( $changeset_id, '_changeset_changeset_status', 'published' );
+	update_post_meta( $changeset_id, '_changeset_status', 'published' );
 	update_post_meta( $changeset_id, '_changeset_published_at', gmdate( 'c' ) );
 	update_post_meta( $changeset_id, '_changeset_published_by', get_current_user_id() );
 
@@ -934,13 +934,13 @@ function cs_list_changesets( $args = array() ) {
 	}
 
 	$query_args = array(
-		'post_type'      => 'cs_changeset',
+		'post_type'      => 'changeset',
 		'post_status'    => 'any',
 		'posts_per_page' => isset( $args['per_page'] ) ? (int) $args['per_page'] : 20,
 		'paged'          => isset( $args['page'] ) ? (int) $args['page'] : 1,
 		'meta_query'     => array(
 			array(
-				'key'     => '_changeset_changeset_status',
+				'key'     => '_changeset_status',
 				'value'   => $meta_status,
 				'compare' => 'IN',
 			),
@@ -1116,7 +1116,7 @@ function cs_preview_staged_index() {
 			FROM {$wpdb->posts} p
 			INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
 			WHERE p.post_status = 'draft'
-			AND pm.meta_key IN ('_changeset_is_staged', '_changeset_changeset_id', %s)
+			AND pm.meta_key IN ('_changeset_is_staged', '_changeset_id', %s)
 			AND EXISTS (
 				SELECT 1 FROM {$wpdb->postmeta} pm2
 				WHERE pm2.post_id = p.ID
@@ -1126,7 +1126,7 @@ function cs_preview_staged_index() {
 			AND EXISTS (
 				SELECT 1 FROM {$wpdb->postmeta} pm3
 				WHERE pm3.post_id = p.ID
-				AND pm3.meta_key = '_changeset_changeset_id'
+				AND pm3.meta_key = '_changeset_id'
 				AND pm3.meta_value = %d
 			)
 			GROUP BY p.ID",
@@ -1424,7 +1424,7 @@ add_action( 'pre_get_posts', 'cs_hide_staged_from_admin_lists' );
  * @param WP_Post $post    Post.
  */
 function cs_delete_changeset_staged( $post_id, $post ) {
-	if ( ! $post || 'cs_changeset' !== $post->post_type ) {
+	if ( ! $post || 'changeset' !== $post->post_type ) {
 		return;
 	}
 	foreach ( cs_get_staged_drafts( $post_id ) as $staged_id ) {

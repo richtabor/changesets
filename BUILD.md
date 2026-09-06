@@ -39,13 +39,13 @@ Humans ask for **site outcomes** ("add Contact to the nav", "warm up the colors"
 
 Inspired by Customizer **changesets** (`customize_changeset` + preview UUID), adapted to block-theme entities (which are already posts).
 
-### 1. CPT `cs_changeset`
+### 1. CPT `changeset`
 
 - `post_title` = human label ("Add Contact", "Home copy pass")
 - Status: `draft` (open) → `pending` (approved) → published/closed via meta after Publish Changeset (or trash on discard)
 - Meta:
-  - `_changeset_changeset_uuid` — public preview token
-  - `_changeset_changeset_status` — `open` | `approved` | `published` | `discarded`
+  - `_changeset_uuid` — public preview token
+  - `_changeset_status` — `open` | `approved` | `published` | `discarded`
   - `_changeset_approved_by`, `_changeset_approved_at` when approved
   - `_changeset_staged_options` — site settings bag
   - `_changeset_staged_global_styles` — global styles JSON
@@ -57,7 +57,11 @@ Everything visitor-facing that is a WP post type gets a **draft clone** tagged i
 
 | Entity | post_type | Meta on clone |
 |---|---|---|
+<<<<<<< HEAD
 | Page / post | `page` / `post` | `_changeset_changeset_id`, `_changeset_source`, `_changeset_is_staged` |
+=======
+| Page / post | `page` / `post` | `_changeset_id`, `_changeset_source`, `_changeset_is_staged` |
+>>>>>>> 0748316 (Fix CPT and meta key naming)
 | Template | `wp_template` | same |
 | Template part | `wp_template_part` | same |
 | Navigation | `wp_navigation` | same |

@@ -193,7 +193,7 @@ function cs_render_changeset_bar_footer_fallback() {
  * @return array
  */
 function cs_changeset_row_actions( $actions, $post ) {
-	if ( ! $post || 'cs_changeset' !== $post->post_type ) {
+	if ( ! $post || 'changeset' !== $post->post_type ) {
 		return $actions;
 	}
 
@@ -224,7 +224,7 @@ add_filter( 'post_row_actions', 'cs_changeset_row_actions', 10, 2 );
  */
 function cs_changeset_edit_link_to_preview( $url, $post_id, $context = 'display' ) {
 	$post = get_post( $post_id );
-	if ( ! $post || 'cs_changeset' !== $post->post_type ) {
+	if ( ! $post || 'changeset' !== $post->post_type ) {
 		return $url;
 	}
 	$status  = cs_get_changeset_status( $post->ID );
@@ -241,12 +241,12 @@ add_filter( 'get_edit_post_link', 'cs_changeset_edit_link_to_preview', 10, 3 );
  */
 function cs_disable_changeset_quick_edit() {
 	$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-	if ( ! $screen || 'edit-cs_changeset' !== $screen->id ) {
+	if ( ! $screen || 'edit-changeset' !== $screen->id ) {
 		return;
 	}
 	wp_add_inline_style(
 		'common',
-		'.post-type-cs_changeset .row-actions .inline, .post-type-cs_changeset button.editinline { display: none !important; }'
+		'.post-type-changeset .row-actions .inline, .post-type-changeset button.editinline { display: none !important; }'
 	);
 }
 add_action( 'admin_enqueue_scripts', 'cs_disable_changeset_quick_edit' );
