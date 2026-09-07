@@ -1439,8 +1439,8 @@ function cs_preview_init_dynamic_filters() {
 	foreach ( $bag as $key => $item ) {
 		// Backward compatibility: 0.5.0+ structure { value, store } vs 0.4.2 direct value.
 		if ( is_array( $item ) && isset( $item['store'] ) && 'theme_mod' === $item['store'] ) {
-			// Theme mod: hook pre_get_theme_mod_{$key}.
-			add_filter( "pre_get_theme_mod_{$key}", 'cs_preview_filter_theme_mod', 10, 2 );
+			// Theme mod: hook pre_theme_mod_{$key}.
+			add_filter( "pre_theme_mod_{$key}", 'cs_preview_filter_theme_mod', 10, 2 );
 		} else {
 			// Option: hook pre_option_{$key}.
 			add_filter( "pre_option_{$key}", 'cs_preview_filter_option', 10, 2 );
