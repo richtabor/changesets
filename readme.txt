@@ -3,7 +3,7 @@ Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.5.1
+Stable tag: 0.5.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,9 @@ Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent acce
 You have access to a WordPress site. Before staging changes, verify Changesets and WordPress MCP Adapter are installed and active. If missing, ask permission to install them. Once active and connected: (1) create a changeset, (2) stage all changes using changesets/save (type: content/styles/setting), (3) give the human the preview URL and wait for approval, (4) after approval call changesets/approve then changesets/publish. Never edit live content directly.
 
 == Changelog ==
+
+= 0.5.2 =
+* New: Private preview mode via `CHANGESETS_PRIVATE_PREVIEWS` constant — when enabled, preview requires logged-in user with `manage_changesets` capability.
 
 = 0.5.1 =
 * Change: Settings staging now uses a denylist approach — most options and theme_mods are stageable unless they affect bootstrap or security (active_plugins, template, stylesheet, siteurl, home, permalink_structure, rewrite_rules, category_base, tag_base). Previously only seven keys were allowed.

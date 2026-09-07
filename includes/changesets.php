@@ -1252,6 +1252,22 @@ function cs_init_preview() {
 		return;
 	}
 
+	// Private preview mode: require logged-in user with manage_changesets capability.
+	if ( defined( 'CHANGESETS_PRIVATE_PREVIEWS' ) && CHANGESETS_PRIVATE_PREVIEWS ) {
+		if ( ! is_user_logged_in() ) {
+			cs_clear_preview_cookie();
+			auth_redirect();
+		}
+		if ( ! current_user_can( 'manage_changesets' ) ) {
+			cs_clear_preview_cookie();
+			wp_die(
+				esc_html__( 'You do not have permission to preview changesets.', 'changesets' ),
+				esc_html__( 'Insufficient Permissions', 'changesets' ),
+				array( 'response' => 403 )
+			);
+		}
+	}
+
 	if ( isset( $_GET['changeset'] ) ) {
 		cs_set_preview_cookie( $uuid );
 	}

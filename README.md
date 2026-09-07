@@ -43,6 +43,14 @@ See [readme.txt](readme.txt) for complete documentation.
 2. Create an Application Password (propose-only user without publish permissions recommended)
 3. Connect your MCP client to the site using the Application Password
 
+**Private preview mode** (optional): Require logged-in users with `manage_changesets` capability to preview changesets. Add to `wp-config.php`:
+
+```php
+define( 'CHANGESETS_PRIVATE_PREVIEWS', true );
+```
+
+When enabled, only logged-in users with the appropriate capability can use `?changeset=<uuid>` preview URLs. When disabled (default), anyone with the UUID can preview.
+
 ## License
 
 GPLv2 or later
