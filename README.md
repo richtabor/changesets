@@ -2,12 +2,6 @@
 
 Accumulate site edits in a staging Changeset, preview them on the live site without touching production, then Publish Changeset after human approval.
 
-## Status
-
-**This is a public prototype and experiment** for agent-first staging (Customizer DNA via Abilities). The idea is plausible for core WordPress; this plugin is not a formal core proposal and is not hardened for production multi-tenant use. Public `?changeset=` previews are intentional (easy share/phone) and are a known security tradeoff — don't use on sensitive production sites without understanding that.
-
-**MCP connection**: This plugin works with own-site MCP connections only (not Playground).
-
 ## For AI agents
 
 **Agent prompt** (paste-ready):

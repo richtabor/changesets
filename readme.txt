@@ -9,12 +9,6 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Accumulate site edits in a staging Changeset, preview them on the live site without touching production, then Publish Changeset after human approval. Built for AI agents and humans using the WordPress Abilities API.
 
-== Important ==
-
-This is a public prototype and experiment for agent-first staging (Customizer DNA via Abilities). The idea is plausible for core WordPress; this plugin is not a formal core proposal and is not hardened for production multi-tenant use. Public `?changeset=` previews are intentional (easy share/phone) and are a known security tradeoff — don't use on sensitive production sites without understanding that.
-
-This plugin works with own-site MCP connections only (not Playground).
-
 == Description ==
 
 Changesets introduces staging sessions where agents and humans accumulate site edits before publishing.
