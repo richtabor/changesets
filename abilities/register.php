@@ -241,7 +241,7 @@ function cs_register_abilities() {
 					),
 					'key'          => array(
 						'type'        => 'string',
-						'description' => '[setting] Option or theme_mod name to stage (show_on_front, page_on_front, page_for_posts, blogname, blogdescription, site_icon, custom_logo).',
+						'description' => '[setting] Option or theme_mod name to stage. Most options/theme_mods are stageable; denylisted keys (active_plugins, template, siteurl, permalink_structure, etc.) are rejected. Common examples: show_on_front, page_on_front, page_for_posts, blogname, blogdescription, site_icon, custom_logo, posts_per_page, comment_registration, etc.',
 					),
 					'value'        => array(
 						'description' => '[setting] Option value. For media references (site_icon, custom_logo), use attachment ID.',

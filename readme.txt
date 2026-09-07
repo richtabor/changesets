@@ -3,7 +3,7 @@ Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.5.0
+Stable tag: 0.5.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,11 +17,10 @@ Changesets introduces staging sessions where agents and humans accumulate site e
 
 The live site stays untouched until Publish. Preview shows exactly what visitors will see after publish.
 
-**v0.5.0** expands settings and media capabilities:
-- **Featured images**: Stage featured_media on pages/posts via `changesets/save` type=content
-- **Site logo & icon**: Stage custom_logo (theme_mod) and site_icon (option) via `changesets/save` type=setting
+**v0.5.1** expands settings staging with denylist approach:
+- **Settings**: Most options/theme_mods are now stageable. A denylist blocks unsafe keys (active_plugins, template, siteurl, permalink_structure, etc.). All others allowed: blogname, posts_per_page, comment_registration, discussion settings, etc.
 - **Media policy**: Attachments never staged — uploads go to Media Library (persist on discard); only references (IDs) are staged
-- **Settings coverage**: blogname, blogdescription, show_on_front, page_on_front, page_for_posts, site_icon, custom_logo
+- **Preview truthfulness**: Preview dynamically overlays all staged settings (not just hardcoded keys)
 
 **v0.4.0** introduces unified `changesets/save` ability for full site staging:
 - **Content**: Pages, posts, templates, template parts, navigation, and custom post types
@@ -72,6 +71,12 @@ Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent acce
 You have access to a WordPress site. Before staging changes, verify Changesets and WordPress MCP Adapter are installed and active. If missing, ask permission to install them. Once active and connected: (1) create a changeset, (2) stage all changes using changesets/save (type: content/styles/setting), (3) give the human the preview URL and wait for approval, (4) after approval call changesets/approve then changesets/publish. Never edit live content directly.
 
 == Changelog ==
+
+= 0.5.1 =
+* Change: Settings staging now uses a denylist approach — most options and theme_mods are stageable unless they affect bootstrap or security (active_plugins, template, stylesheet, siteurl, home, permalink_structure, rewrite_rules, category_base, tag_base). Previously only seven keys were allowed.
+* Change: Preview dynamically applies filters for all staged options/theme_mods (not just hardcoded keys). Previews are now truthful for any allowed setting.
+* New: `cs_denylisted_options` filter allows developers to add or remove keys from the denylist.
+* Improved: Ability schema description clarifies denylist model and provides more setting examples (posts_per_page, comment_registration, etc.).
 
 = 0.5.0 =
 * New: Featured image support — stage `featured_media` or `thumbnail_id` (attachment ID) when saving content via `changesets/save` type=content.

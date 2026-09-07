@@ -385,8 +385,9 @@ function cs_get_staged_options( $changeset_id ) {
 /**
  * Stage a site option or theme_mod into a changeset (not applied live until Publish).
  *
- * Supported keys: show_on_front, page_on_front, page_for_posts, blogname, blogdescription, site_icon.
- * Theme mods: custom_logo.
+ * Uses a denylist approach: most options and theme_mods are stageable unless they affect
+ * bootstrap, authentication, or core site behavior. Denylisted keys are rejected with
+ * WP_Error; all others are accepted.
  *
  * @param int    $changeset_id Changeset ID.
  * @param string $key          Option or theme_mod name.
@@ -409,21 +410,47 @@ function cs_stage_option( $changeset_id, $key, $value, $store = 'option' ) {
 		$store = 'theme_mod';
 	}
 
-	// Allowed options and theme_mods.
-	$allowed_options = array( 'show_on_front', 'page_on_front', 'page_for_posts', 'blogname', 'blogdescription', 'site_icon' );
-	$allowed_theme_mods = array( 'custom_logo' );
+	// Denylist: unsafe keys that affect bootstrap, authentication, or core behavior.
+	$denylisted_options = array(
+		// Plugin management.
+		'active_plugins',
+		'uninstall_plugins',
+		// Theme switching.
+		'template',
+		'stylesheet',
+		'current_theme',
+		'theme_switched',
+		// Site URLs (change request context).
+		'siteurl',
+		'home',
+		// Permalinks and rewrites (change routing/bootstrap).
+		'permalink_structure',
+		'rewrite_rules',
+		'category_base',
+		'tag_base',
+	);
 
-	if ( 'theme_mod' === $store ) {
-		if ( ! in_array( $key, $allowed_theme_mods, true ) ) {
-			return new WP_Error( 'cs_unsupported_theme_mod', __( 'That theme mod is not stageable yet.', 'changesets' ) );
-		}
-	} else {
-		if ( ! in_array( $key, $allowed_options, true ) ) {
-			return new WP_Error( 'cs_unsupported_option', __( 'That setting is not stageable yet.', 'changesets' ) );
-		}
+	/**
+	 * Filter the denylist of options that cannot be staged.
+	 *
+	 * @param array  $denylisted_options Unsafe option keys.
+	 * @param string $key                The option key being staged.
+	 * @param string $store              Storage type ('option' or 'theme_mod').
+	 */
+	$denylisted_options = apply_filters( 'cs_denylisted_options', $denylisted_options, $key, $store );
+
+	if ( 'option' === $store && in_array( $key, $denylisted_options, true ) ) {
+		return new WP_Error(
+			'cs_denylisted_option',
+			sprintf(
+				/* translators: %s: option key */
+				__( 'Option "%s" cannot be staged (affects site bootstrap or security).', 'changesets' ),
+				$key
+			)
+		);
 	}
 
-	// Type conversion.
+	// Type conversion for known post/attachment reference keys.
 	if ( in_array( $key, array( 'page_on_front', 'page_for_posts', 'site_icon', 'custom_logo' ), true ) ) {
 		$value = (int) $value;
 	} else {
@@ -1388,9 +1415,44 @@ function cs_preview_filter_posts( $query ) {
 add_action( 'pre_get_posts', 'cs_preview_filter_posts' );
 
 /**
+ * Dynamically apply preview filters for all staged options and theme_mods.
+ *
+ * Called once per request when a changeset is active. Reads the staged options bag
+ * and registers filters for each key so preview is truthful.
+ */
+function cs_preview_init_dynamic_filters() {
+	$uuid = cs_get_active_preview_uuid();
+	if ( ! $uuid ) {
+		return;
+	}
+
+	$changeset = cs_get_changeset( $uuid );
+	if ( ! $changeset ) {
+		return;
+	}
+
+	$bag = cs_get_staged_options( $changeset->ID );
+	if ( empty( $bag ) ) {
+		return;
+	}
+
+	foreach ( $bag as $key => $item ) {
+		// Backward compatibility: 0.5.0+ structure { value, store } vs 0.4.2 direct value.
+		if ( is_array( $item ) && isset( $item['store'] ) && 'theme_mod' === $item['store'] ) {
+			// Theme mod: hook pre_get_theme_mod_{$key}.
+			add_filter( "pre_get_theme_mod_{$key}", 'cs_preview_filter_theme_mod', 10, 2 );
+		} else {
+			// Option: hook pre_option_{$key}.
+			add_filter( "pre_option_{$key}", 'cs_preview_filter_option', 10, 2 );
+		}
+	}
+}
+add_action( 'init', 'cs_preview_init_dynamic_filters', 20 );
+
+/**
  * Overlay staged options during preview.
  *
- * @param mixed  $pre  Short-circuit value.
+ * @param mixed  $pre    Short-circuit value.
  * @param string $option Option name.
  * @return mixed
  */
@@ -1410,12 +1472,6 @@ function cs_preview_filter_option( $pre, $option ) {
 	}
 	return $pre;
 }
-add_filter( 'pre_option_show_on_front', 'cs_preview_filter_option', 10, 2 );
-add_filter( 'pre_option_page_on_front', 'cs_preview_filter_option', 10, 2 );
-add_filter( 'pre_option_page_for_posts', 'cs_preview_filter_option', 10, 2 );
-add_filter( 'pre_option_blogname', 'cs_preview_filter_option', 10, 2 );
-add_filter( 'pre_option_blogdescription', 'cs_preview_filter_option', 10, 2 );
-add_filter( 'pre_option_site_icon', 'cs_preview_filter_option', 10, 2 );
 
 /**
  * Overlay staged theme_mods during preview.
@@ -1439,7 +1495,6 @@ function cs_preview_filter_theme_mod( $pre, $name ) {
 	}
 	return $pre;
 }
-add_filter( 'pre_get_theme_mod_custom_logo', 'cs_preview_filter_theme_mod', 10, 2 );
 
 /**
  * Overlay staged style variation onto user theme.json during preview.
