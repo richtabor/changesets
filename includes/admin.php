@@ -143,7 +143,7 @@ function cs_render_changeset_bar() {
 			if (adminHeight > 0) {
 				bar.style.top = adminHeight + 'px';
 			}
-			document.documentElement.style.marginTop = (adminHeight + barHeight) + 'px';
+			document.documentElement.style.setProperty('margin-top', (adminHeight + barHeight) + 'px', 'important');
 		})();
 	</script>
 	<?php
