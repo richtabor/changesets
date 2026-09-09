@@ -34,17 +34,7 @@ function cs_render_changeset_bar() {
 	$status = cs_get_changeset_status( $changeset->ID );
 	?>
 	<style id="dcp-changeset-bar-styles">
-		/* Changeset preview bar — matches WP admin bar behavior (fixed desktop, scrolls on mobile). */
-		html.dcp-previewing {
-			--dcp-changeset-bar-height: 32px;
-		}
-		html.dcp-previewing:not(.wp-toolbar) {
-			margin-top: var(--dcp-changeset-bar-height) !important;
-		}
-		html.dcp-previewing.wp-toolbar {
-			margin-top: calc(var(--wp-admin--admin-bar--height, 32px) + var(--dcp-changeset-bar-height)) !important;
-		}
-		body.dcp-previewing .dcp-changeset-bar {
+		.dcp-changeset-bar {
 			position: fixed;
 			top: 0;
 			left: 0;
@@ -55,14 +45,11 @@ function cs_render_changeset_bar() {
 			gap: 12px;
 			box-sizing: border-box;
 			width: 100%;
-			height: var(--dcp-changeset-bar-height);
+			height: 32px;
 			padding: 0 14px;
 			background: #1e1e1e;
 			color: #f0f0f0;
 			font: 13px/32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-		}
-		body.dcp-previewing.admin-bar .dcp-changeset-bar {
-			top: var(--wp-admin--admin-bar--height, 32px);
 		}
 		.dcp-changeset-bar__label {
 			display: flex;
@@ -101,56 +88,36 @@ function cs_render_changeset_bar() {
 			text-decoration: none;
 			padding: 6px 10px;
 			border-radius: 2px;
-			-webkit-tap-highlight-color: transparent;
 		}
-		.dcp-changeset-bar__exit:hover,
-		.dcp-changeset-bar__exit:focus {
+		.dcp-changeset-bar__exit:hover {
 			background: #fff3bf;
 			color: #000;
 		}
-		/* Sticky site headers sit below the Changeset bar (same idea as admin-bar). */
 		body.dcp-previewing .is-position-sticky {
-			top: var(--dcp-changeset-bar-height) !important;
+			top: 32px !important;
 		}
 		body.dcp-previewing.admin-bar .is-position-sticky {
-			top: calc(var(--wp-admin--admin-bar--height, 32px) + var(--dcp-changeset-bar-height)) !important;
+			top: 64px !important;
 		}
-		/* Mobile nav overlay must paint above the Changeset bar. */
 		body.dcp-previewing .wp-block-navigation__responsive-container.is-menu-open {
 			z-index: 100001 !important;
 		}
-		body.dcp-previewing.has-modal-open .is-menu-open:where(:not(.disable-default-overlay)) .wp-block-navigation__responsive-dialog {
-			margin-top: var(--dcp-changeset-bar-height);
-		}
-		body.dcp-previewing.admin-bar.has-modal-open .is-menu-open:where(:not(.disable-default-overlay)) .wp-block-navigation__responsive-dialog {
-			margin-top: calc(var(--wp-admin--admin-bar--height, 46px) + var(--dcp-changeset-bar-height));
-		}
 		@media screen and (max-width: 782px) {
-			html.dcp-previewing {
-				--dcp-changeset-bar-height: 46px;
-			}
-			body.dcp-previewing .dcp-changeset-bar {
+			.dcp-changeset-bar {
 				position: absolute;
+				height: 46px;
 				font-size: 14px;
 				line-height: 46px;
 				padding: 0 12px;
 			}
-			body.dcp-previewing.admin-bar .dcp-changeset-bar {
-				top: var(--wp-admin--admin-bar--height, 46px);
-			}
-			body.dcp-previewing.admin-bar .is-position-sticky {
-				top: calc(var(--wp-admin--admin-bar--height, 46px) + var(--dcp-changeset-bar-height)) !important;
-			}
-			body.dcp-previewing.admin-bar.has-modal-open .is-menu-open:where(:not(.disable-default-overlay)) .wp-block-navigation__responsive-dialog {
-				margin-top: calc(var(--wp-admin--admin-bar--height, 46px) + var(--dcp-changeset-bar-height));
-			}
 			.dcp-changeset-bar__exit {
 				padding: 8px 12px;
 			}
-		}
-		@media screen and (min-width: 783px) {
-			body.dcp-previewing.admin-bar.has-modal-open .is-menu-open:where(:not(.disable-default-overlay)) .wp-block-navigation__responsive-dialog {
-				margin-top: calc(var(--wp-admin--admin-bar--height, 32px) + var(--dcp-changeset-bar-height));
+			body.dcp-previewing .is-position-sticky {
+				top: 46px !important;
+			}
+			body.dcp-previewing.admin-bar .is-position-sticky {
+				top: 92px !important;
 			}
 		}
 	</style>
@@ -167,15 +134,16 @@ function cs_render_changeset_bar() {
 		</a>
 	</div>
 	<script>
-		// Set admin bar height from actual element for precise stacking (handles proxy badges, custom admin bars).
 		(function() {
+			var bar = document.querySelector('.dcp-changeset-bar');
 			var adminBar = document.getElementById('wpadminbar');
-			if (adminBar) {
-				var height = adminBar.offsetHeight;
-				if (height > 0) {
-					document.documentElement.style.setProperty('--wp-admin--admin-bar--height', height + 'px');
-				}
+			var barHeight = bar ? bar.offsetHeight : 32;
+			var adminHeight = adminBar ? adminBar.offsetHeight : 0;
+			
+			if (adminHeight > 0) {
+				bar.style.top = adminHeight + 'px';
 			}
+			document.documentElement.style.marginTop = (adminHeight + barHeight) + 'px';
 		})();
 	</script>
 	<?php
@@ -272,19 +240,3 @@ function cs_previewing_admin_body_class( $classes ) {
 	return $classes;
 }
 add_filter( 'body_class', 'cs_previewing_admin_body_class' );
-
-/**
- * @param string $output Language attributes.
- * @return string
- */
-function cs_previewing_html_class( $output ) {
-	if ( cs_get_active_preview_uuid() && cs_get_changeset( cs_get_active_preview_uuid() ) ) {
-		if ( false !== strpos( $output, 'class="' ) ) {
-			$output = str_replace( 'class="', 'class="dcp-previewing ', $output );
-		} else {
-			$output .= ' class="dcp-previewing"';
-		}
-	}
-	return $output;
-}
-add_filter( 'language_attributes', 'cs_previewing_html_class' );

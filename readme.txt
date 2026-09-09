@@ -73,9 +73,8 @@ You have access to a WordPress site. Before staging changes, verify Changesets a
 == Changelog ==
 
 = 0.5.3 =
-* Fix: Changeset bar now stacks correctly with WordPress admin bar on preview — site header content is no longer clipped underneath.
-* Fix: CSS now uses `html.wp-toolbar` (WordPress standard) instead of `html.admin-bar` for document offset, matching core admin bar behavior.
-* Fix: Admin bar height is dynamically measured from actual element for precise stacking with proxy badges and custom admin bars.
+* Fix: Changeset bar now stacks correctly with WordPress admin bar — site header content no longer clipped underneath.
+* Change: Simplified preview bar implementation with lean JS-based positioning (measures actual admin bar height for precise stacking).
 
 = 0.5.2 =
 * New: Private preview mode via `CHANGESETS_PRIVATE_PREVIEWS` constant — when enabled, preview requires logged-in user with `manage_changesets` capability.
