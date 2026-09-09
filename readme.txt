@@ -3,7 +3,7 @@ Contributors: richtabor
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.5.2
+Stable tag: 0.5.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,11 @@ Pair with the WordPress MCP Adapter (separate plugin) for desktop/API agent acce
 You have access to a WordPress site. Before staging changes, verify Changesets and WordPress MCP Adapter are installed and active. If missing, ask permission to install them. Once active and connected: (1) create a changeset, (2) stage all changes using changesets/save (type: content/styles/setting), (3) give the human the preview URL and wait for approval, (4) after approval call changesets/approve then changesets/publish. Never edit live content directly.
 
 == Changelog ==
+
+= 0.5.3 =
+* Fix: Changeset bar now stacks correctly with WordPress admin bar on preview — site header content is no longer clipped underneath.
+* Fix: CSS now uses `html.wp-toolbar` (WordPress standard) instead of `html.admin-bar` for document offset, matching core admin bar behavior.
+* Fix: Admin bar height is dynamically measured from actual element for precise stacking with proxy badges and custom admin bars.
 
 = 0.5.2 =
 * New: Private preview mode via `CHANGESETS_PRIVATE_PREVIEWS` constant — when enabled, preview requires logged-in user with `manage_changesets` capability.
