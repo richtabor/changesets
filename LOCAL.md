@@ -27,10 +27,12 @@ The site will be available at:
 
 ## What's Installed
 
-wp-env automatically installs and activates:
+wp-env automatically installs:
 1. **Changesets plugin** (this repo, mapped from `.`)
 2. **WordPress MCP Adapter** (from WordPress/mcp-adapter trunk)
 3. **Twenty Twenty-Five theme** (block theme)
+
+**Note**: If plugins aren't automatically activated, use the troubleshooting command below.
 
 ## Creating an Application Password
 
@@ -57,21 +59,17 @@ Configure `@automattic/mcp-wordpress-remote` to connect to your local MCP Adapte
         "@automattic/mcp-wordpress-remote"
       ],
       "env": {
-        "WORDPRESS_URL": "http://localhost:8888",
-        "WORDPRESS_USERNAME": "admin",
-        "WORDPRESS_PASSWORD": "<your-application-password>"
+        "WP_API_URL": "http://localhost:8888/wp-json/mcp/mcp-adapter-default-server",
+        "WP_API_USERNAME": "admin",
+        "WP_API_PASSWORD": "<your-application-password>",
+        "OAUTH_ENABLED": "false"
       }
     }
   }
 }
 ```
 
-The MCP Adapter endpoint is automatically available at:
-```
-http://localhost:8888/wp-json/mcp/mcp-adapter-default-server
-```
-
-The remote MCP client (`@automattic/mcp-wordpress-remote`) handles authentication and proxies requests to this endpoint.
+Replace `<your-application-password>` with the Application Password you created above.
 
 ## Smoke Test Checklist
 
